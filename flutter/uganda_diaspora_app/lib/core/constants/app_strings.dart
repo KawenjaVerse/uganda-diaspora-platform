@@ -68,6 +68,6 @@ class AppStrings {
   static const String registerSuccess = 'Account created successfully!';
   static const String postCreated = 'Post created successfully!';
 
-  // Base URL - Update this to your backend URL
-  static const String baseUrl = 'https://your-api-domain.replit.app/api';
+  // Base URL - development server
+  static const String baseUrl = 'https://f8d7379b-c508-40c1-a4a0-2c57ed4a5f83-00-2l4mwlkbp5xiy.spock.replit.dev/api';
 }
