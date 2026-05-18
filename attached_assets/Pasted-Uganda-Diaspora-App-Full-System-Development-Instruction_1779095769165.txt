@@ -1,0 +1,450 @@
+Uganda Diaspora App – Full System Development Instructions
+
+We are building a modern, scalable, professional Uganda Diaspora digital platform consisting of:
+
+A Flutter Mobile Application (Android + iOS)
+A Web Admin Dashboard
+Backend APIs and Database
+Push Notification System
+CMS-style content management
+
+The platform represents the Uganda Diaspora Unit and should feel official, modern, patriotic, informative, and interactive.
+
+The agent should think creatively and add useful diaspora-focused features where necessary.
+
+PROJECT NAME
+
+Uganda Diaspora App
+
+TECH STACK
+Mobile App
+Flutter
+Riverpod or Provider for state management
+GoRouter for navigation
+Dio for API requests
+Firebase Cloud Messaging for notifications
+Cached network images
+Responsive UI
+Clean architecture
+Dark/light mode support
+Web Admin Dashboard
+React + TypeScript OR Next.js
+Material UI or Tailwind CSS
+Charts and analytics dashboard
+Authentication and role management
+Backend
+Node.js + NestJS
+PostgreSQL database
+JWT Authentication
+REST APIs
+File upload support
+Cloud storage for images/videos/documents
+Notification service
+Role-based access control
+GENERAL DESIGN REQUIREMENTS
+
+The application should:
+
+Look premium and modern
+Use Uganda-inspired colors tastefully
+Include subtle animations
+Have smooth transitions
+Be responsive
+Use clean cards and sections
+Support pagination
+Support search and filtering
+Be scalable for future modules
+
+The agent should generate:
+
+Production-ready folder structures
+Modular reusable widgets/components
+Clean architecture
+API documentation
+Seed/demo data
+Dummy images/placeholders where necessary
+MOBILE APP FEATURES
+1. Splash Screen
+Uganda Diaspora logo
+Background image/video
+Smooth animation
+App slogan
+Loading indicator
+2. Authentication
+Login
+Register
+Forgot password
+OTP/email verification
+Social login optional
+
+User types:
+
+Diaspora member
+Embassy official
+Admin
+Moderator
+3. Home Screen
+
+The home screen should be rich and dynamic.
+
+Sections:
+A. Hero Banner Carousel
+Government announcements
+Upcoming webinars
+National campaigns
+Diaspora updates
+B. MDAs Section
+
+Display cards for Uganda Government MDAs.
+
+Examples:
+
+Ministry of Foreign Affairs
+Uganda Investment Authority
+NIRA
+URA
+Immigration
+Ministry of Tourism
+State House
+
+Each card should:
+
+Have logo/image
+Description
+Website link
+Open inside in-app webview
+C. Quick Access Cards
+
+Cards for:
+
+About Us
+Contact Us
+Our Services
+Gallery
+Events
+Opportunities
+Emergency Support
+FAQs
+D. News Section
+
+Two categories:
+
+Diaspora Unit News
+Uganda National News
+
+Features:
+
+News cards
+Featured news slider
+Full article page
+Share news
+Bookmark news
+Search news
+Categorization
+E. Tourism Module
+
+Create a full tourism experience.
+
+Include:
+
+Tourist attractions
+National parks
+Hotels
+Cultural sites
+Investment opportunities
+Tourism videos
+Explore Uganda section
+
+Features:
+
+Beautiful image galleries
+Maps
+Travel information
+Tour packages
+Local experiences
+F. Webinar Series Module
+
+Dedicated webinar/video section.
+
+Features:
+
+Latest webinar videos
+Embedded YouTube videos
+Live webinar countdown
+Register for webinars
+Webinar categories
+Previous webinar archives
+G. Message from the Head of State House Diaspora Unit
+
+Create a professional section containing:
+
+Portrait image
+Official message
+Welcome statement
+Vision and mission
+Video message optional
+4. Embassies Module
+
+This is a major module.
+
+Embassies List Screen
+Vertical card list
+Embassy image
+Country flag
+Country name
+Search functionality
+Filter by continent/region
+Embassy Details Screen
+
+When tapped, show:
+
+Embassy images
+Full embassy profile
+Address
+Email
+Phone
+Website
+Google Maps location
+Office hours
+Services offered
+Ambassador information
+Embassy staff directory
+Emergency contacts
+Social media links
+
+Extra features:
+
+Book embassy appointments
+Download embassy forms
+Ask embassy questions
+5. Community / Chat / Posts Module
+
+Create a social engagement section.
+
+Features:
+
+Community discussions
+Posts with images/videos
+Like/comment/share
+Hashtags
+Groups by country
+Diaspora success stories
+Events discussions
+Moderation tools
+Report inappropriate content
+
+Optional:
+
+Real-time messaging
+Public forums
+Polls
+6. Notifications Module
+
+Push notifications for:
+
+News updates
+Embassy alerts
+Webinar reminders
+Government announcements
+Emergency alerts
+7. Profile Module
+
+Features:
+
+User profile
+Country of residence
+Profession
+Interests
+Saved posts
+Saved news
+Membership status
+Settings
+Notification preferences
+Security settings
+8. Additional Creative Features
+
+The agent should creatively include diaspora-relevant modules such as:
+
+Investment Hub
+Investment opportunities in Uganda
+Agriculture
+Real estate
+Technology
+Government programs
+Jobs & Opportunities
+Diaspora jobs
+Scholarships
+Internship programs
+Volunteering
+Emergency Assistance
+Report emergencies
+Request support
+Embassy hotlines
+Business Directory
+Ugandan businesses abroad
+Diaspora-owned businesses
+Events Module
+Community events
+Government events
+Embassy events
+Event registration
+AI Assistant
+
+Simple chatbot assistant for:
+
+FAQs
+Embassy guidance
+Visa information
+Tourism help
+WEB ADMIN DASHBOARD
+
+The admin dashboard manages all app content.
+
+ADMIN FEATURES
+Dashboard Analytics
+User statistics
+Active users
+News analytics
+Webinar analytics
+Embassy engagement
+Downloads and views
+Content Management
+News Management
+Create/edit/delete news
+Rich text editor
+Upload images/videos
+Categories
+Scheduling
+Embassy Management
+Add embassies
+Update embassy information
+Manage staff
+Upload embassy media
+Webinar Management
+Add webinar videos
+Schedule webinars
+Manage registrations
+Tourism Management
+Manage attractions
+Upload galleries
+Manage tourism articles
+MDA Management
+Add ministry cards
+Manage website links
+Notifications Management
+Send push notifications
+Audience targeting
+Scheduled notifications
+User Management
+Roles and permissions
+Suspend/ban users
+Verify embassy officials
+Community Moderation
+Moderate posts/comments
+Reports management
+Events Management
+Add and manage events
+BACKEND REQUIREMENTS
+
+Create scalable REST APIs for:
+
+Authentication
+Users
+News
+Embassies
+Posts
+Notifications
+Tourism
+Webinars
+Analytics
+Events
+Uploads
+
+Include:
+
+Swagger documentation
+Pagination
+Filtering
+Search
+Role permissions
+Validation
+Error handling
+DATABASE REQUIREMENTS
+
+Use PostgreSQL.
+
+Create proper relational database design for:
+
+Users
+Embassies
+News
+Tourism places
+Webinar videos
+Posts/comments
+Notifications
+Events
+Roles/permissions
+Analytics
+UI/UX REQUIREMENTS
+
+The agent should:
+
+Use modern UI patterns
+Add reusable widgets/components
+Create beautiful cards
+Include empty states
+Loading skeletons
+Offline handling
+Error handling
+Responsive layouts
+Elegant typography
+DELIVERABLES
+
+The agent should generate:
+
+Mobile App
+Complete Flutter source code
+Production-ready architecture
+API integration
+Reusable widgets
+Web Admin
+Full admin dashboard
+Responsive web design
+Backend
+Complete NestJS backend
+PostgreSQL setup
+Swagger docs
+Documentation
+Installation guide
+Deployment guide
+Environment setup
+API documentation
+DEPLOYMENT
+
+Prepare for deployment on:
+
+Android Play Store
+Apple App Store
+VPS hosting
+Docker support
+IMPORTANT
+
+The agent should:
+
+Be creative
+Add diaspora-focused ideas
+Make the platform feel official and world-class
+Prioritize scalability and maintainability
+Generate modern UI/UX
+Use dummy data initially
+Ensure the admin dashboard fully controls mobile app content
+
+Also include:
+
+Multi-language support readiness
+Accessibility support
+SEO support for web admin
+Security best practices
+Audit logs for admin actions
+
+The final system should feel like a national-level digital platform for Ugandans living abroad.
