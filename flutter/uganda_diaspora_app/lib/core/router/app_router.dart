@@ -6,6 +6,7 @@ import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/register_screen.dart';
 import '../../features/home/screens/main_shell.dart';
 import '../../features/home/screens/home_screen.dart';
+import '../../features/home/screens/statehouse_message_screen.dart';
 import '../../features/news/screens/news_list_screen.dart';
 import '../../features/news/screens/news_detail_screen.dart';
 import '../../features/embassies/screens/embassies_screen.dart';
@@ -49,6 +50,12 @@ GoRouter createRouter() {
       GoRoute(
         path: '/register',
         builder: (context, state) => const RegisterScreen(),
+      ),
+      // Statehouse message — full screen, outside shell (no bottom nav)
+      GoRoute(
+        path: '/statehouse',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const StatehouseMessageScreen(),
       ),
       ShellRoute(
         navigatorKey: _shellNavigatorKey,
