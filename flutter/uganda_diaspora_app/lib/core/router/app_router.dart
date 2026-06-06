@@ -23,19 +23,34 @@ import '../../features/notifications/screens/notifications_screen.dart';
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
 
+/// Routes that require the user to be signed in.
+const _protectedRoutes = ['/community', '/profile', '/notifications'];
+
 GoRouter createRouter() {
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
     initialLocation: '/splash',
     redirect: (context, state) async {
+      // Splash is always allowed
       if (state.matchedLocation == '/splash') return null;
+
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('auth_token');
       final isAuth = token != null && token.isNotEmpty;
-      final isOnAuthPage = state.matchedLocation == '/login' || state.matchedLocation == '/register';
 
-      if (!isAuth && !isOnAuthPage) return '/login';
+      final isOnAuthPage =
+          state.matchedLocation == '/login' || state.matchedLocation == '/register';
+
+      // If accessing a protected route without being logged in → login
+      final requiresAuth =
+          _protectedRoutes.any((r) => state.matchedLocation.startsWith(r));
+      if (!isAuth && requiresAuth) return '/login';
+
+      // Logged-in users visiting auth pages → home
       if (isAuth && isOnAuthPage) return '/';
+
+      // Public routes (home, news, embassies, tourism, webinars, events,
+      // opportunities, statehouse) are accessible without login
       return null;
     },
     routes: [
@@ -51,7 +66,7 @@ GoRouter createRouter() {
         path: '/register',
         builder: (context, state) => const RegisterScreen(),
       ),
-      // Statehouse message — full screen, outside shell (no bottom nav)
+      // Statehouse message — full screen, outside shell
       GoRoute(
         path: '/statehouse',
         parentNavigatorKey: _rootNavigatorKey,
@@ -61,73 +76,49 @@ GoRouter createRouter() {
         navigatorKey: _shellNavigatorKey,
         builder: (context, state, child) => MainShell(child: child),
         routes: [
-          GoRoute(
-            path: '/',
-            builder: (context, state) => const HomeScreen(),
-          ),
+          GoRoute(path: '/', builder: (_, __) => const HomeScreen()),
           GoRoute(
             path: '/news',
-            builder: (context, state) => const NewsListScreen(),
+            builder: (_, __) => const NewsListScreen(),
             routes: [
               GoRoute(
                 path: ':id',
                 parentNavigatorKey: _rootNavigatorKey,
-                builder: (context, state) => NewsDetailScreen(
-                  id: int.parse(state.pathParameters['id']!),
-                ),
+                builder: (_, state) =>
+                    NewsDetailScreen(id: int.parse(state.pathParameters['id']!)),
               ),
             ],
           ),
           GoRoute(
             path: '/embassies',
-            builder: (context, state) => const EmbassiesScreen(),
+            builder: (_, __) => const EmbassiesScreen(),
             routes: [
               GoRoute(
                 path: ':id',
                 parentNavigatorKey: _rootNavigatorKey,
-                builder: (context, state) => EmbassyDetailScreen(
-                  id: int.parse(state.pathParameters['id']!),
-                ),
+                builder: (_, state) =>
+                    EmbassyDetailScreen(id: int.parse(state.pathParameters['id']!)),
               ),
             ],
           ),
           GoRoute(
             path: '/tourism',
-            builder: (context, state) => const TourismScreen(),
+            builder: (_, __) => const TourismScreen(),
             routes: [
               GoRoute(
                 path: ':id',
                 parentNavigatorKey: _rootNavigatorKey,
-                builder: (context, state) => TourismDetailScreen(
-                  id: int.parse(state.pathParameters['id']!),
-                ),
+                builder: (_, state) =>
+                    TourismDetailScreen(id: int.parse(state.pathParameters['id']!)),
               ),
             ],
           ),
-          GoRoute(
-            path: '/webinars',
-            builder: (context, state) => const WebinarsScreen(),
-          ),
-          GoRoute(
-            path: '/events',
-            builder: (context, state) => const EventsScreen(),
-          ),
-          GoRoute(
-            path: '/community',
-            builder: (context, state) => const CommunityScreen(),
-          ),
-          GoRoute(
-            path: '/opportunities',
-            builder: (context, state) => const OpportunitiesScreen(),
-          ),
-          GoRoute(
-            path: '/profile',
-            builder: (context, state) => const ProfileScreen(),
-          ),
-          GoRoute(
-            path: '/notifications',
-            builder: (context, state) => const NotificationsScreen(),
-          ),
+          GoRoute(path: '/webinars',     builder: (_, __) => const WebinarsScreen()),
+          GoRoute(path: '/events',       builder: (_, __) => const EventsScreen()),
+          GoRoute(path: '/community',    builder: (_, __) => const CommunityScreen()),
+          GoRoute(path: '/opportunities',builder: (_, __) => const OpportunitiesScreen()),
+          GoRoute(path: '/profile',      builder: (_, __) => const ProfileScreen()),
+          GoRoute(path: '/notifications',builder: (_, __) => const NotificationsScreen()),
         ],
       ),
     ],

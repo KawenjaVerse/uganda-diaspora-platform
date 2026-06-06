@@ -34,73 +34,52 @@ class MainShell extends StatelessWidget {
     return Scaffold(
       body: child,
 
-      // ── Diaspora Registration FAB (home only) ──────────────────────────────
+      // ── Diaspora Registration FAB (home only) ─────────────────────────
       floatingActionButton: isHome
           ? FloatingActionButton.extended(
               onPressed: () => showDiasporaRegistrationSheet(context),
-              backgroundColor: AppColors.ugandaYellow,
-              foregroundColor: Colors.black,
+              backgroundColor: AppColors.darkOrange,
+              foregroundColor: Colors.white,
               elevation: 4,
-              icon: const Icon(Icons.how_to_reg_rounded, size: 22),
+              icon: const Icon(Icons.how_to_reg_rounded, size: 21),
               label: const Text(
                 'Diaspora Registration',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, letterSpacing: 0.3),
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
               ),
             )
           : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
 
-      // ── Bottom Navigation ──────────────────────────────────────────────────
+      // ── Bottom Navigation ─────────────────────────────────────────────
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Uganda flag accent strip above nav bar
-          Row(
-            children: const [
-              Expanded(child: SizedBox(height: 2, child: ColoredBox(color: Colors.black))),
-              Expanded(child: SizedBox(height: 2, child: ColoredBox(color: AppColors.ugandaYellow))),
-              Expanded(child: SizedBox(height: 2, child: ColoredBox(color: AppColors.ugandaRed))),
-              Expanded(child: SizedBox(height: 2, child: ColoredBox(color: Colors.black))),
-              Expanded(child: SizedBox(height: 2, child: ColoredBox(color: AppColors.ugandaYellow))),
-              Expanded(child: SizedBox(height: 2, child: ColoredBox(color: AppColors.ugandaRed))),
-            ],
-          ),
+          // Uganda flag accent strip
+          Row(children: [
+            AppColors.ugandaBlack,
+            AppColors.ugandaYellow,
+            AppColors.ugandaRed,
+            AppColors.ugandaBlack,
+            AppColors.ugandaYellow,
+            AppColors.ugandaRed,
+          ].map((c) => Expanded(child: SizedBox(height: 2, child: ColoredBox(color: c)))).toList()),
+
           BottomNavigationBar(
             currentIndex: currentIndex,
-            onTap: (index) => _onTap(context, index),
+            onTap: (i) => _onTap(context, i),
             backgroundColor: Colors.white,
-            selectedItemColor: Colors.black,
-            unselectedItemColor: const Color(0xFF9CA3AF),
+            selectedItemColor: AppColors.primaryBlack,
+            unselectedItemColor: AppColors.textMutedLight,
             type: BottomNavigationBarType.fixed,
             elevation: 0,
             selectedLabelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
             unselectedLabelStyle: const TextStyle(fontSize: 11),
             items: const [
-              BottomNavigationBarItem(
-                icon: Icon(Icons.home_outlined),
-                activeIcon: Icon(Icons.home_rounded),
-                label: 'Home',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.newspaper_outlined),
-                activeIcon: Icon(Icons.newspaper_rounded),
-                label: 'News',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.location_city_outlined),
-                activeIcon: Icon(Icons.location_city_rounded),
-                label: 'Embassies',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.people_outline_rounded),
-                activeIcon: Icon(Icons.people_rounded),
-                label: 'Community',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.person_outline_rounded),
-                activeIcon: Icon(Icons.person_rounded),
-                label: 'Profile',
-              ),
+              BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home_rounded), label: 'Home'),
+              BottomNavigationBarItem(icon: Icon(Icons.newspaper_outlined), activeIcon: Icon(Icons.newspaper_rounded), label: 'News'),
+              BottomNavigationBarItem(icon: Icon(Icons.location_city_outlined), activeIcon: Icon(Icons.location_city_rounded), label: 'Embassies'),
+              BottomNavigationBarItem(icon: Icon(Icons.people_outline_rounded), activeIcon: Icon(Icons.people_rounded), label: 'Community'),
+              BottomNavigationBarItem(icon: Icon(Icons.person_outline_rounded), activeIcon: Icon(Icons.person_rounded), label: 'Profile'),
             ],
           ),
         ],

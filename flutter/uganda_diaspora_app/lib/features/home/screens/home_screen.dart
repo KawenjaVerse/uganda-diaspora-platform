@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:timeago/timeago.dart' as timeago;
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_strings.dart';
 import '../../../core/network/api_client.dart';
 import '../../../shared/widgets/network_image_widget.dart';
 import '../../../shared/widgets/shimmer_loading.dart';
@@ -15,11 +18,15 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  List<dynamic> _news = [];
-  List<dynamic> _events = [];
-  List<dynamic> _mdas = [];
-  bool _loading = true;
-  String _userName = 'Ugandan';
+  List<dynamic> _news     = [];
+  List<dynamic> _mdas     = [];
+  List<dynamic> _tourism  = [];
+  List<dynamic> _webinars = [];
+  List<dynamic> _events   = [];
+  bool _loading    = true;
+  bool _hasError   = false;
+  String _userName = '';
+  bool _isLoggedIn = false;
 
   @override
   void initState() {
@@ -28,579 +35,1043 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadData() async {
+    if (mounted) setState(() { _loading = true; _hasError = false; });
     try {
-      final results = await Future.wait([
-        ApiClient.instance.getNews(limit: 5, featured: true),
-        ApiClient.instance.getEvents(upcoming: true),
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      _isLoggedIn = token != null && token.isNotEmpty;
+
+      final results = await Future.wait<dynamic>([
+        ApiClient.instance.getNews(limit: 10),
         ApiClient.instance.getMdas(),
-        ApiClient.instance.getMe().catchError((_) => <String, dynamic>{}),
+        ApiClient.instance.getTourism(limit: 6),
+        ApiClient.instance.getWebinars(upcoming: true),
+        ApiClient.instance.getEvents(upcoming: true),
       ]);
+
       if (mounted) {
-        final me = results[3] as Map<String, dynamic>;
-        final fullName = (me['fullName'] ?? me['name'] ?? '') as String;
         setState(() {
-          _news = results[0]['data'] ?? [];
-          _events = results[1]['data'] ?? [];
-          _mdas = results[2] as List;
-          _userName = fullName.isNotEmpty ? fullName.split(' ').first : 'Ugandan';
-          _loading = false;
+          _news     = (results[0] as Map<String, dynamic>)['data'] ?? [];
+          _mdas     = results[1] as List<dynamic>;
+          _tourism  = (results[2] as Map<String, dynamic>)['data'] ?? [];
+          _webinars = (results[3] as Map<String, dynamic>)['data'] ?? [];
+          _events   = (results[4] as Map<String, dynamic>)['data'] ?? [];
+          _loading  = false;
         });
       }
+
+      if (_isLoggedIn) {
+        try {
+          final me = await ApiClient.instance.getMe();
+          if (mounted) setState(() => _userName = me['fullName'] ?? '');
+        } catch (_) {}
+      }
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) setState(() { _loading = false; _hasError = true; });
     }
+  }
+
+  String get _greeting {
+    final h = DateTime.now().hour;
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    return 'Good evening';
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F0),
-      body: RefreshIndicator(
-        color: AppColors.ugandaRed,
-        onRefresh: _loadData,
-        child: CustomScrollView(
-          slivers: [
-            _buildHeroAppBar(context),
-            SliverToBoxAdapter(child: _buildStatehouseBanner(context)),
-            SliverToBoxAdapter(child: _buildQuickAccess(context)),
-            SliverToBoxAdapter(child: _buildMdaSection(context)),
-            SliverToBoxAdapter(child: _buildNewsSection(context)),
-            SliverToBoxAdapter(child: _buildEventsSection(context)),
-            // Space above FAB
-            const SliverToBoxAdapter(child: SizedBox(height: 90)),
-          ],
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
+        backgroundColor: AppColors.backgroundLight,
+        body: RefreshIndicator(
+          color: AppColors.darkOrange,
+          onRefresh: _loadData,
+          child: CustomScrollView(
+            slivers: [
+              // ── App Bar ────────────────────────────────────────────────
+              _HomeAppBar(
+                greeting: _greeting,
+                userName: _userName,
+                isLoggedIn: _isLoggedIn,
+              ),
+
+              // ── Error banner ───────────────────────────────────────────
+              if (_hasError)
+                SliverToBoxAdapter(child: _ErrorBanner(onRetry: _loadData)),
+
+              // ── 1. Trending News ───────────────────────────────────────
+              SliverToBoxAdapter(
+                child: _loading
+                    ? _NewsSkeleton()
+                    : _TrendingNewsSection(news: _news),
+              ),
+
+              // ── 2. Announcements ───────────────────────────────────────
+              SliverToBoxAdapter(
+                child: _AnnouncementsSection(events: _events),
+              ),
+
+              // ── 3. Quick Access Services ───────────────────────────────
+              const SliverToBoxAdapter(child: _QuickAccessSection()),
+
+              // ── 4. Statehouse Message ──────────────────────────────────
+              const SliverToBoxAdapter(child: _StatehouseCard()),
+
+              // ── 5. MDAs ────────────────────────────────────────────────
+              SliverToBoxAdapter(
+                child: _loading
+                    ? _RowSkeleton()
+                    : _MdaSection(mdas: _mdas),
+              ),
+
+              // ── 6. Tourism Showcase ────────────────────────────────────
+              SliverToBoxAdapter(
+                child: _loading
+                    ? _RowSkeleton()
+                    : _TourismSection(tourism: _tourism),
+              ),
+
+              // ── 7. Webinars ────────────────────────────────────────────
+              SliverToBoxAdapter(
+                child: _loading
+                    ? _RowSkeleton()
+                    : _WebinarSection(webinars: _webinars),
+              ),
+
+              // ── 8. Community Highlight ─────────────────────────────────
+              SliverToBoxAdapter(
+                child: _CommunityHighlight(isLoggedIn: _isLoggedIn),
+              ),
+
+              // FAB + nav bottom padding
+              const SliverToBoxAdapter(child: SizedBox(height: 120)),
+            ],
+          ),
         ),
       ),
     );
   }
+}
 
-  // ── Hero App Bar ───────────────────────────────────────────────────────────
-  Widget _buildHeroAppBar(BuildContext context) {
+// ═══════════════════════════════════════════════════════════════════════════
+// APP BAR
+// ═══════════════════════════════════════════════════════════════════════════
+class _HomeAppBar extends StatelessWidget {
+  final String greeting;
+  final String userName;
+  final bool isLoggedIn;
+  const _HomeAppBar({required this.greeting, required this.userName, required this.isLoggedIn});
+
+  @override
+  Widget build(BuildContext context) {
     return SliverAppBar(
-      expandedHeight: 230,
-      floating: false,
-      pinned: true,
-      backgroundColor: Colors.black,
-      systemOverlayStyle: const SystemUiOverlayStyle(statusBarBrightness: Brightness.dark),
-      flexibleSpace: FlexibleSpaceBar(
-        collapseMode: CollapseMode.fade,
-        background: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Uganda flag stripe bands (full background)
-            Column(children: [
-              Expanded(child: Container(color: Colors.black)),
-              Expanded(child: Container(color: AppColors.ugandaYellow)),
-              Expanded(child: Container(color: AppColors.ugandaRed)),
-              Expanded(child: Container(color: Colors.black)),
-              Expanded(child: Container(color: AppColors.ugandaYellow)),
-              Expanded(child: Container(color: AppColors.ugandaRed)),
-            ]),
-            // Dark overlay
-            Container(color: Colors.black.withOpacity(0.72)),
-            // Content
-            SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 16, 16),
+      backgroundColor: AppColors.primaryBlack,
+      floating: true,
+      snap: true,
+      pinned: false,
+      elevation: 0,
+      toolbarHeight: 72,
+      flexibleSpace: SafeArea(
+        child: Container(
+          color: AppColors.primaryBlack,
+          padding: const EdgeInsets.fromLTRB(16, 10, 10, 10),
+          child: Row(
+            children: [
+              // Logo
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white,
+                  border: Border.all(color: AppColors.darkOrange, width: 2),
+                  boxShadow: [BoxShadow(color: AppColors.darkOrange.withOpacity(0.3), blurRadius: 10)],
+                ),
+                padding: const EdgeInsets.all(4),
+                child: Image.asset(
+                  'assets/images/coat_of_arms.png',
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) =>
+                      const Icon(Icons.flag_rounded, color: AppColors.darkOrange, size: 24),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isLoggedIn && userName.isNotEmpty
+                          ? '$greeting, ${userName.split(' ').first}!'
+                          : 'Uganda Diaspora',
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.2),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      'Connecting Ugandans Worldwide',
+                      style: TextStyle(
+                          color: Colors.white.withOpacity(0.5),
+                          fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+              // Search icon
+              _AppBarIcon(
+                icon: Icons.search_rounded,
+                onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+                  _snack('Search coming soon'),
+                ),
+              ),
+              const SizedBox(width: 6),
+              // Notifications (with badge)
+              Stack(
+                children: [
+                  _AppBarIcon(
+                    icon: Icons.notifications_outlined,
+                    onTap: () => context.go('/notifications'),
+                  ),
+                  Positioned(
+                    right: 6,
+                    top: 6,
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: AppColors.deepRed,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AppBarIcon extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  const _AppBarIcon({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(9),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.10),
+          borderRadius: BorderRadius.circular(11),
+        ),
+        child: Icon(icon, color: Colors.white, size: 19),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 1. TRENDING NEWS
+// ═══════════════════════════════════════════════════════════════════════════
+class _TrendingNewsSection extends StatelessWidget {
+  final List<dynamic> news;
+  const _TrendingNewsSection({required this.news});
+
+  @override
+  Widget build(BuildContext context) {
+    if (news.isEmpty) return const SizedBox.shrink();
+    final featured = news.first;
+    final trending = news.length > 1 ? news.sublist(1) : <dynamic>[];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 20),
+        _SectionHeader(
+          title: 'Trending News',
+          accentColor: AppColors.darkOrange,
+          action: 'See all',
+          onAction: () => context.go('/news'),
+        ),
+        const SizedBox(height: 12),
+
+        // Hero card
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: _HeroNewsCard(item: featured),
+        ),
+
+        // Horizontal scroll
+        if (trending.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          SizedBox(
+            height: 186,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: trending.length,
+              itemBuilder: (_, i) => _SmallNewsCard(item: trending[i]),
+            ),
+          ),
+        ],
+        const SizedBox(height: 28),
+      ],
+    );
+  }
+}
+
+class _HeroNewsCard extends StatelessWidget {
+  final dynamic item;
+  const _HeroNewsCard({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl  = item['imageUrl']    as String?;
+    final title     = item['title']       as String? ?? 'No title';
+    final category  = item['category']    as String? ?? 'News';
+    final publishedAt = item['publishedAt'] as String?;
+    final id        = item['id']          as int?    ?? 0;
+
+    DateTime? pubDate;
+    try { pubDate = publishedAt != null ? DateTime.parse(publishedAt) : null; } catch (_) {}
+
+    return GestureDetector(
+      onTap: () => context.push('/news/$id'),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(22),
+        child: SizedBox(
+          height: 272,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Background
+              imageUrl != null && imageUrl.isNotEmpty
+                  ? NetworkImageWidget(imageUrl: imageUrl, borderRadius: 0, fit: BoxFit.cover)
+                  : Container(decoration: const BoxDecoration(gradient: AppColors.heroGradient)),
+
+              // Scrim
+              Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0x33000000), Color(0xDD000000)],
+                    stops: [0.25, 1.0],
+                  ),
+                ),
+              ),
+
+              // Content
+              Padding(
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Top row: coat of arms + title + icons
                     Row(
                       children: [
-                        // Mini coat of arms badge
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: AppColors.ugandaYellow, width: 2),
-                          ),
-                          child: ClipOval(
-                            child: Column(children: [
-                              Expanded(child: Container(color: Colors.black)),
-                              Expanded(child: Container(color: AppColors.ugandaYellow)),
-                              Expanded(child: Container(color: AppColors.ugandaRed)),
-                            ]),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        const Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('UGANDA', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 3)),
-                            Text('DIASPORA', style: TextStyle(color: AppColors.ugandaYellow, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 3)),
-                          ],
+                        _Badge('TRENDING', AppColors.deepRed),
+                        const Spacer(),
+                        _IconPill(icon: Icons.share_outlined, onTap: () => Share.share(title)),
+                        const SizedBox(width: 6),
+                        _IconPill(icon: Icons.bookmark_border_rounded, onTap: () {}),
+                      ],
+                    ),
+                    const Spacer(),
+                    _Badge(category.toUpperCase(), AppColors.darkOrange),
+                    const SizedBox(height: 8),
+                    Text(
+                      title,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 19,
+                          fontWeight: FontWeight.w800,
+                          height: 1.3,
+                          letterSpacing: -0.3),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        const Icon(Icons.access_time_rounded, color: Colors.white54, size: 13),
+                        const SizedBox(width: 4),
+                        Text(
+                          pubDate != null ? timeago.format(pubDate) : 'Just now',
+                          style: const TextStyle(color: Colors.white54, fontSize: 12),
                         ),
                         const Spacer(),
-                        // Statehouse message icon
-                        _AppBarIcon(
-                          icon: Icons.campaign_rounded,
-                          color: AppColors.ugandaYellow,
-                          badge: true,
-                          onTap: () => context.push('/statehouse'),
-                          tooltip: 'Statehouse Message',
+                        const Row(
+                          children: [
+                            Text('Read story', style: TextStyle(color: AppColors.darkOrange, fontSize: 12, fontWeight: FontWeight.w700)),
+                            SizedBox(width: 4),
+                            Icon(Icons.arrow_forward_rounded, color: AppColors.darkOrange, size: 13),
+                          ],
                         ),
-                        const SizedBox(width: 4),
-                        // Notifications icon
-                        _AppBarIcon(
-                          icon: Icons.notifications_outlined,
-                          onTap: () => context.go('/notifications'),
-                          tooltip: 'Notifications',
-                        ),
-                      ],
-                    ),
-
-                    const Spacer(),
-
-                    // Greeting
-                    Row(
-                      children: [
-                        Container(width: 3, height: 36, color: AppColors.ugandaYellow, margin: const EdgeInsets.only(right: 10)),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Akwaaba, $_userName! 👋',
-                                style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800, height: 1),
-                              ),
-                              const SizedBox(height: 4),
-                              const Text(
-                                'Connecting Ugandans Worldwide',
-                                style: TextStyle(color: Colors.white60, fontSize: 13, fontWeight: FontWeight.w400),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 14),
-
-                    // Stats chips
-                    Row(
-                      children: [
-                        _StatChip(label: '3M+', sub: 'Diaspora'),
-                        const SizedBox(width: 8),
-                        _StatChip(label: '54', sub: 'Missions'),
-                        const SizedBox(width: 8),
-                        _StatChip(label: '\$1.2B', sub: 'Remittances'),
                       ],
                     ),
                   ],
                 ),
               ),
-            ),
-          ],
-        ),
-        title: Row(
-          children: [
-            Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: AppColors.ugandaYellow, width: 1.5)),
-              child: ClipOval(
-                child: Column(children: [
-                  Expanded(child: Container(color: Colors.black)),
-                  Expanded(child: Container(color: AppColors.ugandaYellow)),
-                  Expanded(child: Container(color: AppColors.ugandaRed)),
-                ]),
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Text('Uganda Diaspora', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700)),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
+}
 
-  // ── Statehouse Banner ──────────────────────────────────────────────────────
-  Widget _buildStatehouseBanner(BuildContext context) {
+class _SmallNewsCard extends StatelessWidget {
+  final dynamic item;
+  const _SmallNewsCard({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl    = item['imageUrl']    as String?;
+    final title       = item['title']       as String? ?? '';
+    final category    = item['category']    as String? ?? 'News';
+    final publishedAt = item['publishedAt'] as String?;
+    final id          = item['id']          as int?    ?? 0;
+
+    DateTime? pubDate;
+    try { pubDate = publishedAt != null ? DateTime.parse(publishedAt) : null; } catch (_) {}
+
     return GestureDetector(
-      onTap: () => context.push('/statehouse'),
+      onTap: () => context.push('/news/$id'),
       child: Container(
-        margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+        width: 198,
+        margin: const EdgeInsets.only(right: 12),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border(left: const BorderSide(color: AppColors.ugandaYellow, width: 4)),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 16, offset: const Offset(0, 3))],
+          border: Border.all(color: AppColors.dividerLight),
         ),
-        child: Row(
+        clipBehavior: Clip.hardEdge,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Icon section
-            Container(
-              width: 68,
-              height: 68,
-              decoration: BoxDecoration(
-                borderRadius: const BorderRadius.horizontal(left: Radius.circular(11)),
-                color: Colors.black,
-              ),
+            SizedBox(
+              height: 104,
               child: Stack(
-                alignment: Alignment.center,
+                fit: StackFit.expand,
                 children: [
-                  // Flag mini bands
-                  Column(children: [
-                    Expanded(child: Container(color: Colors.black)),
-                    Expanded(child: Container(color: AppColors.ugandaYellow)),
-                    Expanded(child: Container(color: AppColors.ugandaRed)),
-                  ]),
-                  Container(color: Colors.black.withOpacity(0.5)),
-                  const Icon(Icons.campaign_rounded, color: AppColors.ugandaYellow, size: 32),
+                  NetworkImageWidget(imageUrl: imageUrl, borderRadius: 0, fit: BoxFit.cover),
+                  Positioned(
+                    top: 8, left: 8,
+                    child: _Badge(category.toUpperCase(), AppColors.darkOrange, fontSize: 8.5),
+                  ),
                 ],
               ),
             ),
-            // Text
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppColors.ugandaRed.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: const Text('NEW MESSAGE', style: TextStyle(color: AppColors.ugandaRed, fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 1)),
-                    ),
-                    const SizedBox(height: 5),
-                    const Text(
-                      'Message from the Head of Diaspora Affairs',
-                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, height: 1.3),
-                    ),
-                    const SizedBox(height: 3),
-                    const Text(
-                      'Read the official statement from State House, Kampala',
-                      style: TextStyle(color: AppColors.textSecondaryLight, fontSize: 11, height: 1.4),
+                    Text(title,
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, height: 1.35),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis),
+                    const Spacer(),
+                    Text(
+                      pubDate != null ? timeago.format(pubDate) : '',
+                      style: const TextStyle(fontSize: 10, color: AppColors.textMutedLight),
                     ),
                   ],
                 ),
               ),
-            ),
-            // Arrow
-            const Padding(
-              padding: EdgeInsets.only(right: 12),
-              child: Icon(Icons.chevron_right_rounded, color: AppColors.textSecondaryLight, size: 22),
             ),
           ],
         ),
       ),
     );
   }
+}
 
-  // ── Quick Access Grid ──────────────────────────────────────────────────────
-  Widget _buildQuickAccess(BuildContext context) {
-    final items = [
-      _QuickItem('Tourism', Icons.landscape_rounded, AppColors.tourismOrange, '/tourism'),
-      _QuickItem('Webinars', Icons.play_circle_outline_rounded, AppColors.webinarPurple, '/webinars'),
-      _QuickItem('Events', Icons.event_rounded, AppColors.ugandaRed, '/events'),
-      _QuickItem('Opportunities', Icons.work_outline_rounded, AppColors.ugandaYellow, '/opportunities'),
-      _QuickItem('Embassies', Icons.location_city_rounded, AppColors.embassyTeal, '/embassies'),
-      _QuickItem('Community', Icons.people_rounded, Colors.black, '/community'),
-    ];
+// ═══════════════════════════════════════════════════════════════════════════
+// 2. ANNOUNCEMENTS
+// ═══════════════════════════════════════════════════════════════════════════
+class _AnnouncementsSection extends StatelessWidget {
+  final List<dynamic> events;
+  const _AnnouncementsSection({required this.events});
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 28),
+      color: AppColors.primaryBlack,
+      padding: const EdgeInsets.fromLTRB(16, 22, 16, 22),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionHeader(title: 'Quick Access'),
-          const SizedBox(height: 12),
-          GridView.count(
-            crossAxisCount: 3,
+          // Header row
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.darkOrange.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.campaign_rounded, color: AppColors.darkOrange, size: 20),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Official Announcements',
+                        style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800)),
+                    Text('State House · Diaspora Unit',
+                        style: TextStyle(color: Colors.white38, fontSize: 11)),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.deepRed.withOpacity(0.18),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: AppColors.deepRed.withOpacity(0.4)),
+                ),
+                child: const Text('LIVE',
+                    style: TextStyle(
+                        color: AppColors.deepRed,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1)),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          // Pinned card
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.darkOrange.withOpacity(0.3)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.darkOrange.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.push_pin_rounded, color: AppColors.darkOrange, size: 18),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Welcome to the Uganda Diaspora Portal',
+                          style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
+                      SizedBox(height: 4),
+                      Text(
+                        'Connect with government services, stay informed, and engage with Ugandans across the globe.',
+                        style: TextStyle(color: Colors.white60, fontSize: 12, height: 1.5),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Upcoming events
+          if (events.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            ...events.take(2).map((e) => _EventRow(item: e)),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _EventRow extends StatelessWidget {
+  final dynamic item;
+  const _EventRow({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    final title     = item['title']     as String? ?? '';
+    final startDate = item['startDate'] as String?;
+    DateTime? dt;
+    try { dt = startDate != null ? DateTime.parse(startDate) : null; } catch (_) {}
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.07),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(dt != null ? DateFormat('d').format(dt) : '--',
+                    style: const TextStyle(
+                        color: AppColors.darkOrange, fontSize: 14, fontWeight: FontWeight.w900, height: 1)),
+                Text(dt != null ? DateFormat('MMM').format(dt) : '--',
+                    style: const TextStyle(color: Colors.white54, fontSize: 9, height: 1)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(title,
+                style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w500),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+          ),
+          const Icon(Icons.chevron_right_rounded, color: Colors.white30, size: 16),
+        ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 3. QUICK ACCESS
+// ═══════════════════════════════════════════════════════════════════════════
+class _QuickAccessSection extends StatelessWidget {
+  const _QuickAccessSection();
+
+  static const _items = [
+    _QAItem('Embassies',     Icons.location_city_rounded,         Color(0xFF0891B2), '/embassies'),
+    _QAItem('Tourism',       Icons.landscape_rounded,              Color(0xFF16A34A), '/tourism'),
+    _QAItem('Webinars',      Icons.video_camera_front_rounded,     Color(0xFF7C3AED), '/webinars'),
+    _QAItem('Opportunities', Icons.work_outline_rounded,           Color(0xFFD97706), '/opportunities'),
+    _QAItem('Events',        Icons.event_rounded,                  Color(0xFFB91C1C), '/events'),
+    _QAItem('Community',     Icons.people_rounded,                 Color(0xFF0891B2), '/community'),
+    _QAItem('Services',      Icons.miscellaneous_services_rounded, Color(0xFF374151), '/'),
+    _QAItem('Emergency',     Icons.emergency_rounded,              Color(0xFFDC2626), '/'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionHeader(title: 'Quick Access', accentColor: AppColors.primaryBlack),
+          const SizedBox(height: 14),
+          GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
-            childAspectRatio: 1.1,
-            children: items.map((item) => _buildQuickItem(context, item)).toList(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 4,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              childAspectRatio: 0.84,
+            ),
+            itemCount: _items.length,
+            itemBuilder: (context, i) => _QACard(item: _items[i]),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildQuickItem(BuildContext context, _QuickItem item) {
+class _QAItem {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final String route;
+  const _QAItem(this.label, this.icon, this.color, this.route);
+}
+
+class _QACard extends StatelessWidget {
+  final _QAItem item;
+  const _QACard({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () => context.go(item.route),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))],
+          border: Border.all(color: AppColors.dividerLight),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 44,
-              height: 44,
+              width: 42,
+              height: 42,
               decoration: BoxDecoration(
-                color: item.color.withOpacity(0.12),
+                color: item.color.withOpacity(0.10),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(item.icon, color: item.color, size: 24),
+              child: Icon(item.icon, color: item.color, size: 22),
             ),
             const SizedBox(height: 7),
             Text(
               item.label,
-              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Colors.black87),
+              style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, letterSpacing: -0.1),
               textAlign: TextAlign.center,
+              maxLines: 2,
             ),
           ],
         ),
       ),
     );
   }
+}
 
-  // ── MDA Section ────────────────────────────────────────────────────────────
-  Widget _buildMdaSection(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+// ═══════════════════════════════════════════════════════════════════════════
+// 4. STATEHOUSE MESSAGE
+// ═══════════════════════════════════════════════════════════════════════════
+class _StatehouseCard extends StatelessWidget {
+  const _StatehouseCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 28),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF1C0A00), Color(0xFF121212)],
+        ),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppColors.darkOrange.withOpacity(0.35)),
+      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionHeader(title: AppStrings.governmentMdas, route: null),
-          const SizedBox(height: 12),
-          if (_loading)
-            Column(children: List.generate(3, (_) => Padding(
-              padding: const EdgeInsets.only(bottom: 14),
-              child: ShimmerLoading(width: double.infinity, height: 260),
-            )))
-          else if (_mdas.isEmpty)
-            _emptyState('No MDAs available', Icons.account_balance_outlined)
-          else
-            Column(
-              children: _mdas.map((mda) => _buildMdaCard(context, mda)).toList(),
+          // Top orange stripe
+          Container(
+            height: 4,
+            decoration: const BoxDecoration(
+              gradient: AppColors.orangeGradient,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
             ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 58,
+                      height: 58,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.darkOrange.withOpacity(0.12),
+                        border: Border.all(color: AppColors.darkOrange, width: 2),
+                      ),
+                      child: const Icon(Icons.person_rounded, color: AppColors.darkOrange, size: 32),
+                    ),
+                    const SizedBox(width: 14),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Message from the Diaspora Unit',
+                              style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w800)),
+                          SizedBox(height: 3),
+                          Text('Office of the President · State House Uganda',
+                              style: TextStyle(color: AppColors.darkOrange, fontSize: 10, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
+                    _Badge('OFFICIAL', AppColors.darkOrange, fontSize: 8.5),
+                  ],
+                ),
+
+                const SizedBox(height: 14),
+
+                const Text(
+                  '"As Ugandans living abroad, you are our greatest ambassadors. The Diaspora Platform is your gateway to stay connected with home, access services, and contribute to Uganda\'s development."',
+                  style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.65, fontStyle: FontStyle.italic),
+                  maxLines: 5,
+                  overflow: TextOverflow.ellipsis,
+                ),
+
+                const SizedBox(height: 18),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: 42,
+                        child: ElevatedButton(
+                          onPressed: () => context.push('/statehouse'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.darkOrange,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
+                            textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                          ),
+                          child: const Text('Read Full Message'),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    SizedBox(
+                      height: 42,
+                      child: OutlinedButton.icon(
+                        onPressed: () {},
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Colors.white24, width: 1),
+                          foregroundColor: Colors.white70,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                        ),
+                        icon: const Icon(Icons.play_circle_outline_rounded, size: 15),
+                        label: const Text('Video', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildMdaCard(BuildContext context, Map<String, dynamic> mda) {
-    final name = mda['name'] as String? ?? 'Ministry';
-    final description = mda['description'] as String? ?? 'Government Ministry, Department or Agency serving Ugandans.';
-    final website = mda['website'] as String? ?? '';
-    final category = mda['category'] as String? ?? 'Government';
+// ═══════════════════════════════════════════════════════════════════════════
+// 5. MDAs
+// ═══════════════════════════════════════════════════════════════════════════
+class _MdaSection extends StatelessWidget {
+  final List<dynamic> mdas;
+  const _MdaSection({required this.mdas});
+
+  @override
+  Widget build(BuildContext context) {
+    if (mdas.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+          child: Row(
+            children: [
+              _SectionHeader(title: 'Government MDAs', accentColor: AppColors.deepRed),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: AppColors.deepRed.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.deepRed.withOpacity(0.2)),
+                ),
+                child: Text('${mdas.length} agencies',
+                    style: const TextStyle(color: AppColors.deepRed, fontSize: 11, fontWeight: FontWeight.w700)),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(
+          height: 148,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: mdas.length,
+            itemBuilder: (_, i) => _MdaCard(item: mdas[i]),
+          ),
+        ),
+        const SizedBox(height: 28),
+      ],
+    );
+  }
+}
+
+class _MdaCard extends StatelessWidget {
+  final dynamic item;
+  const _MdaCard({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    final name        = item['name']        as String? ?? '';
+    final description = item['description'] as String? ?? '';
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      width: 205,
+      margin: const EdgeInsets.only(right: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.07), blurRadius: 16, offset: const Offset(0, 4))],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.dividerLight),
       ),
       clipBehavior: Clip.hardEdge,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Image section (styled Uganda-flag header) ──────────────
-          Container(
-            height: 130,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                // Uganda flag diagonal stripes
-                CustomPaint(painter: _MdaHeaderPainter()),
-                // Dark overlay
-                Container(color: Colors.black.withOpacity(0.42)),
-                // Category chip top-left
-                Positioned(
-                  top: 12,
-                  left: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.22),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.white.withOpacity(0.4)),
-                    ),
-                    child: Text(category, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
-                  ),
-                ),
-                // Center icon
-                Center(
-                  child: Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.18),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white.withOpacity(0.5), width: 1.5),
-                    ),
-                    child: Icon(_getMdaIcon(category), color: Colors.white, size: 34),
-                  ),
-                ),
-              ],
-            ),
+          // Flag stripe header
+          Row(
+            children: [
+              AppColors.ugandaBlack,
+              AppColors.ugandaYellow,
+              AppColors.ugandaRed,
+            ].map((c) => Expanded(child: Container(height: 44, color: c))).toList(),
           ),
-
-          // ── Title ──────────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-            child: Text(
-              name,
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5, color: Colors.black87, height: 1.3),
-            ),
-          ),
-
-          // ── Description ────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
-            child: Text(
-              description,
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: AppColors.textSecondaryLight, fontSize: 13, height: 1.55),
-            ),
-          ),
-
-          // ── Divider + Visit button ─────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-            child: Row(
-              children: [
-                if (website.isNotEmpty) ...[
-                  Icon(Icons.link_rounded, size: 14, color: Colors.grey.shade400),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      website.replaceFirst('https://', '').replaceFirst('http://', ''),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: Colors.grey.shade400, fontSize: 11),
-                    ),
-                  ),
-                ] else
-                  const Spacer(),
-                const SizedBox(width: 8),
-                // Visit button
-                ElevatedButton.icon(
-                  onPressed: () {
-                    // Navigate or open URL
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Visiting $name...'),
-                        backgroundColor: Colors.black,
-                        behavior: SnackBarBehavior.floating,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.ugandaRed,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-                  ),
-                  icon: const Icon(Icons.open_in_new_rounded, size: 15),
-                  label: const Text('Visit'),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── News Section ───────────────────────────────────────────────────────────
-  Widget _buildNewsSection(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SectionHeader(title: 'Latest News', route: '/news', onSeeAll: () => context.go('/news')),
-          const SizedBox(height: 12),
-          if (_loading)
-            SizedBox(
-              height: 220,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: 3,
-                itemBuilder: (_, __) => Padding(
-                  padding: const EdgeInsets.only(right: 12),
-                  child: ShimmerLoading(width: 230, height: 220, borderRadius: 16),
-                ),
-              ),
-            )
-          else if (_news.isEmpty)
-            _emptyState('No news available', Icons.newspaper_outlined)
-          else
-            SizedBox(
-              height: 230,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: _news.length,
-                itemBuilder: (context, i) => _buildNewsCard(context, _news[i]),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNewsCard(BuildContext context, Map<String, dynamic> item) {
-    return GestureDetector(
-      onTap: () => context.push('/news/${item['id']}'),
-      child: Container(
-        width: 240,
-        margin: const EdgeInsets.only(right: 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 12, offset: const Offset(0, 3))],
-        ),
-        clipBehavior: Clip.hardEdge,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            NetworkImageWidget(
-              imageUrl: item['imageUrl'],
-              height: 130,
-              width: double.infinity,
-              borderRadius: 0,
-            ),
-            Padding(
-              padding: const EdgeInsets.all(12),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (item['category'] != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  Text(name,
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 4),
+                  Text(description,
+                      style: const TextStyle(fontSize: 10.5, color: AppColors.textSecondaryLight, height: 1.4),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis),
+                  const Spacer(),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: AppColors.ugandaRed.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(5),
+                        color: AppColors.primaryBlack,
+                        borderRadius: BorderRadius.circular(6),
                       ),
-                      child: Text(
-                        item['category'],
-                        style: const TextStyle(fontSize: 10, color: AppColors.ugandaRed, fontWeight: FontWeight.w700),
-                      ),
+                      child: const Text('Visit',
+                          style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
                     ),
-                  const SizedBox(height: 7),
-                  Text(
-                    item['title'] ?? '',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, height: 1.35),
                   ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 6. TOURISM SHOWCASE
+// ═══════════════════════════════════════════════════════════════════════════
+class _TourismSection extends StatelessWidget {
+  final List<dynamic> tourism;
+  const _TourismSection({required this.tourism});
+
+  @override
+  Widget build(BuildContext context) {
+    if (tourism.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+          child: _SectionHeader(
+            title: 'Explore Uganda',
+            accentColor: const Color(0xFF16A34A),
+            action: 'See all',
+            onAction: () => context.go('/tourism'),
+          ),
+        ),
+        SizedBox(
+          height: 205,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: tourism.length,
+            itemBuilder: (_, i) => _TourismCard(item: tourism[i]),
+          ),
+        ),
+        const SizedBox(height: 28),
+      ],
+    );
+  }
+}
+
+class _TourismCard extends StatelessWidget {
+  final dynamic item;
+  const _TourismCard({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    final name     = item['name']     as String? ?? '';
+    final imageUrl = item['imageUrl'] as String?;
+    final category = item['category'] as String? ?? 'Tourism';
+    final id       = item['id']       as int?    ?? 0;
+
+    return GestureDetector(
+      onTap: () => context.push('/tourism/$id'),
+      child: Container(
+        width: 174,
+        margin: const EdgeInsets.only(right: 12),
+        clipBehavior: Clip.hardEdge,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          color: AppColors.primaryBlack,
+        ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            NetworkImageWidget(imageUrl: imageUrl, borderRadius: 0, fit: BoxFit.cover),
+            Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.transparent, Color(0xEE000000)],
+                  stops: [0.35, 1.0],
+                ),
+              ),
+            ),
+            Positioned(
+              top: 10, left: 10,
+              child: _Badge(category, const Color(0xFF16A34A), fontSize: 9),
+            ),
+            Positioned(
+              bottom: 12, left: 12, right: 12,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(name,
+                      style: const TextStyle(
+                          color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800, height: 1.3),
+                      maxLines: 2),
                   const SizedBox(height: 6),
-                  Row(
+                  const Row(
                     children: [
-                      const Icon(Icons.schedule_rounded, size: 12, color: AppColors.textSecondaryLight),
-                      const SizedBox(width: 3),
-                      Text(
-                        _formatDate(item['publishedAt']),
-                        style: const TextStyle(fontSize: 11, color: AppColors.textSecondaryLight),
-                      ),
+                      Icon(Icons.explore_rounded, color: Colors.white54, size: 13),
+                      SizedBox(width: 4),
+                      Text('Explore', style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.w600)),
                     ],
                   ),
                 ],
@@ -611,221 +1082,205 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+}
 
-  // ── Events Section ─────────────────────────────────────────────────────────
-  Widget _buildEventsSection(BuildContext context) {
+// ═══════════════════════════════════════════════════════════════════════════
+// 7. WEBINARS
+// ═══════════════════════════════════════════════════════════════════════════
+class _WebinarSection extends StatelessWidget {
+  final List<dynamic> webinars;
+  const _WebinarSection({required this.webinars});
+
+  @override
+  Widget build(BuildContext context) {
+    if (webinars.isEmpty) return const SizedBox.shrink();
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionHeader(title: 'Upcoming Events', route: '/events', onSeeAll: () => context.go('/events')),
-          const SizedBox(height: 12),
-          if (_loading)
-            Column(children: List.generate(2, (_) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: ShimmerLoading(width: double.infinity, height: 80),
-            )))
-          else if (_events.isEmpty)
-            _emptyState('No upcoming events', Icons.event_rounded)
-          else
-            Column(
-              children: _events.take(3).map((event) => _buildEventTile(context, event)).toList(),
-            ),
+          _SectionHeader(
+            title: 'Upcoming Webinars',
+            accentColor: const Color(0xFF7C3AED),
+            action: 'See all',
+            onAction: () => context.go('/webinars'),
+          ),
+          const SizedBox(height: 14),
+          ...webinars.take(3).map((w) => _WebinarRow(item: w)),
         ],
       ),
     );
   }
+}
 
-  Widget _buildEventTile(BuildContext context, Map<String, dynamic> event) {
-    final isVirtual = event['isVirtual'] == true;
+class _WebinarRow extends StatelessWidget {
+  final dynamic item;
+  const _WebinarRow({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    final title       = item['title']       as String? ?? '';
+    final scheduledAt = item['scheduledAt'] as String?;
+    final speakerName = item['speakerName'] as String?;
+    final thumbnailUrl= item['thumbnailUrl']as String?;
+
+    DateTime? dt;
+    try { dt = scheduledAt != null ? DateTime.parse(scheduledAt) : null; } catch (_) {}
+
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))],
+        border: Border.all(color: AppColors.dividerLight),
       ),
       child: Row(
         children: [
-          // Date block
-          Container(
-            width: 64,
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            decoration: const BoxDecoration(
-              color: Colors.black,
-              borderRadius: BorderRadius.horizontal(left: Radius.circular(14)),
-            ),
-            child: Column(
-              children: [
-                Text(
-                  _getEventDay(event['startDate']),
-                  style: const TextStyle(color: AppColors.ugandaYellow, fontSize: 22, fontWeight: FontWeight.w900, height: 1),
-                ),
-                Text(
-                  _getEventMonth(event['startDate']),
-                  style: const TextStyle(color: Colors.white60, fontSize: 11, fontWeight: FontWeight.w500),
-                ),
-              ],
-            ),
-          ),
-          // Content
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          // Thumbnail
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: SizedBox(
+              width: 66,
+              height: 66,
+              child: Stack(
+                fit: StackFit.expand,
                 children: [
-                  Text(
-                    event['title'] ?? '',
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Icon(
-                        isVirtual ? Icons.videocam_outlined : Icons.location_on_outlined,
-                        size: 13,
-                        color: AppColors.textSecondaryLight,
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          isVirtual ? 'Virtual Event' : (event['location'] ?? 'Uganda'),
-                          style: const TextStyle(fontSize: 12, color: AppColors.textSecondaryLight),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                  thumbnailUrl != null && thumbnailUrl.isNotEmpty
+                      ? NetworkImageWidget(imageUrl: thumbnailUrl, borderRadius: 0)
+                      : Container(
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [Color(0xFF7C3AED), Color(0xFF5B21B6)],
+                            ),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                  Container(color: Colors.black26),
+                  const Center(child: Icon(Icons.play_circle_filled_rounded, color: Colors.white, size: 30)),
                 ],
               ),
             ),
           ),
-          // Virtual badge or arrow
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: isVirtual
-                ? Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.ugandaRed.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(6),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, height: 1.3),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis),
+                if (speakerName != null) ...[
+                  const SizedBox(height: 4),
+                  Text(speakerName,
+                      style: const TextStyle(fontSize: 11, color: AppColors.textSecondaryLight)),
+                ],
+                if (dt != null) ...[
+                  const SizedBox(height: 5),
+                  Row(
+                    children: [
+                      const Icon(Icons.calendar_today_rounded, size: 11, color: Color(0xFF7C3AED)),
+                      const SizedBox(width: 4),
+                      Text(DateFormat('MMM d, yyyy · h:mm a').format(dt),
+                          style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF7C3AED),
+                              fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_right_rounded, color: AppColors.textMutedLight, size: 18),
+        ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 8. COMMUNITY HIGHLIGHT
+// ═══════════════════════════════════════════════════════════════════════════
+class _CommunityHighlight extends StatelessWidget {
+  final bool isLoggedIn;
+  const _CommunityHighlight({required this.isLoggedIn});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0891B2), Color(0xFF0C4A6E)],
+        ),
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Diaspora Community',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.3)),
+                const SizedBox(height: 6),
+                const Text(
+                  'Share stories, connect with Ugandans across the world, and engage with the community.',
+                  style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.5),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 40,
+                  child: ElevatedButton(
+                    onPressed: () => context.go('/community'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: const Color(0xFF0891B2),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(horizontal: 18),
+                      textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
                     ),
-                    child: const Text('Online', style: TextStyle(fontSize: 10, color: AppColors.ugandaRed, fontWeight: FontWeight.w700)),
-                  )
-                : const Icon(Icons.chevron_right_rounded, color: AppColors.textSecondaryLight, size: 20),
+                    child: Text(isLoggedIn ? 'Open Community' : 'Join the Conversation'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 14),
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: const Icon(Icons.groups_rounded, color: Colors.white, size: 40),
           ),
         ],
       ),
     );
   }
-
-  // ── Helpers ────────────────────────────────────────────────────────────────
-  Widget _emptyState(String message, IconData icon) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(28),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, size: 36, color: Colors.grey.shade300),
-          const SizedBox(height: 8),
-          Text(message, style: TextStyle(color: Colors.grey.shade400, fontSize: 13)),
-        ],
-      ),
-    );
-  }
-
-  IconData _getMdaIcon(String category) {
-    final c = category.toLowerCase();
-    if (c.contains('foreign') || c.contains('affairs')) return Icons.public_rounded;
-    if (c.contains('health')) return Icons.local_hospital_rounded;
-    if (c.contains('education')) return Icons.school_rounded;
-    if (c.contains('finance') || c.contains('treasury')) return Icons.account_balance_rounded;
-    if (c.contains('trade') || c.contains('commerce')) return Icons.storefront_rounded;
-    if (c.contains('labour') || c.contains('employment')) return Icons.work_rounded;
-    if (c.contains('tourism')) return Icons.landscape_rounded;
-    if (c.contains('agriculture')) return Icons.grass_rounded;
-    if (c.contains('energy') || c.contains('mineral')) return Icons.bolt_rounded;
-    if (c.contains('justice') || c.contains('court')) return Icons.gavel_rounded;
-    if (c.contains('ict') || c.contains('technology')) return Icons.computer_rounded;
-    if (c.contains('infrastructure') || c.contains('transport')) return Icons.directions_transit_rounded;
-    return Icons.account_balance_outlined;
-  }
-
-  String _formatDate(dynamic date) {
-    if (date == null) return '';
-    try {
-      final d = DateTime.parse(date.toString());
-      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      return '${d.day} ${months[d.month - 1]} ${d.year}';
-    } catch (_) {
-      return '';
-    }
-  }
-
-  String _getEventDay(dynamic date) {
-    if (date == null) return '--';
-    try {
-      return DateTime.parse(date.toString()).day.toString();
-    } catch (_) {
-      return '--';
-    }
-  }
-
-  String _getEventMonth(dynamic date) {
-    if (date == null) return '---';
-    try {
-      final d = DateTime.parse(date.toString());
-      const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-      return months[d.month - 1];
-    } catch (_) {
-      return '---';
-    }
-  }
 }
 
-// ── MDA Header Painter (diagonal flag stripes) ─────────────────────────────
-class _MdaHeaderPainter extends CustomPainter {
-  static const _colors = [Colors.black, AppColors.ugandaYellow, AppColors.ugandaRed];
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-    final bandW = w / 4;
-
-    for (int i = 0; i < 6; i++) {
-      final paint = Paint()..color = _colors[i % 3];
-      final x0 = i * bandW - h * 0.7;
-      final path = Path()
-        ..moveTo(x0, 0)
-        ..lineTo(x0 + bandW, 0)
-        ..lineTo(x0 + bandW + h * 0.7, h)
-        ..lineTo(x0 + h * 0.7, h)
-        ..close();
-      canvas.drawPath(path, paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-// ── Section Header ─────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// SHARED WIDGETS
+// ═══════════════════════════════════════════════════════════════════════════
 class _SectionHeader extends StatelessWidget {
   final String title;
-  final String? route;
-  final VoidCallback? onSeeAll;
-
-  const _SectionHeader({required this.title, this.route, this.onSeeAll});
+  final Color accentColor;
+  final String? action;
+  final VoidCallback? onAction;
+  const _SectionHeader({required this.title, required this.accentColor, this.action, this.onAction});
 
   @override
   Widget build(BuildContext context) {
@@ -833,120 +1288,159 @@ class _SectionHeader extends StatelessWidget {
       children: [
         Container(
           width: 4,
-          height: 20,
+          height: 18,
           decoration: BoxDecoration(
-            color: AppColors.ugandaYellow,
+            color: accentColor,
             borderRadius: BorderRadius.circular(2),
           ),
         ),
         const SizedBox(width: 8),
-        Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Colors.black87)),
-        const Spacer(),
-        if (onSeeAll != null)
+        Text(title,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -0.3)),
+        if (action != null) ...[
+          const Spacer(),
           GestureDetector(
-            onTap: onSeeAll,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.black,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Text('See all', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
-            ),
+            onTap: onAction,
+            child: Text(action!,
+                style: const TextStyle(
+                    fontSize: 12, color: AppColors.darkOrange, fontWeight: FontWeight.w700)),
           ),
+        ],
       ],
     );
   }
 }
 
-// ── App Bar Icon Button ────────────────────────────────────────────────────
-class _AppBarIcon extends StatelessWidget {
-  final IconData icon;
+class _Badge extends StatelessWidget {
+  final String text;
   final Color color;
-  final bool badge;
-  final VoidCallback onTap;
-  final String tooltip;
-
-  const _AppBarIcon({
-    required this.icon,
-    this.color = Colors.white,
-    this.badge = false,
-    required this.onTap,
-    required this.tooltip,
-  });
+  final double fontSize;
+  const _Badge(this.text, this.color, {this.fontSize = 10.0});
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: GestureDetector(
-        onTap: onTap,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.white.withOpacity(0.2)),
-              ),
-              child: Icon(icon, color: color, size: 22),
-            ),
-            if (badge)
-              Positioned(
-                top: -3,
-                right: -3,
-                child: Container(
-                  width: 10,
-                  height: 10,
-                  decoration: const BoxDecoration(
-                    color: AppColors.ugandaRed,
-                    shape: BoxShape.circle,
-                    border: Border.fromBorderSide(BorderSide(color: Colors.black, width: 1.5)),
-                  ),
-                ),
-              ),
-          ],
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(6)),
+      child: Text(text,
+          style: TextStyle(
+              color: Colors.white,
+              fontSize: fontSize,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.5)),
+    );
+  }
+}
+
+class _IconPill extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  const _IconPill({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(7),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.45),
+          borderRadius: BorderRadius.circular(9),
         ),
+        child: Icon(icon, color: Colors.white, size: 16),
       ),
     );
   }
 }
 
-// ── Stat Chip ──────────────────────────────────────────────────────────────
-class _StatChip extends StatelessWidget {
-  final String label;
-  final String sub;
-
-  const _StatChip({required this.label, required this.sub});
-
+// ── Skeleton loaders ───────────────────────────────────────────────────────
+class _NewsSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white.withOpacity(0.2)),
-      ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800)),
-          Text(sub, style: const TextStyle(color: Colors.white54, fontSize: 10)),
+          ShimmerLoading(width: 150, height: 24, borderRadius: 4),
+          const SizedBox(height: 14),
+          ShimmerLoading(width: double.infinity, height: 272, borderRadius: 22),
+          const SizedBox(height: 14),
+          Row(
+            children: List.generate(3, (_) => Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: ShimmerLoading(width: 198, height: 186, borderRadius: 16),
+            )),
+          ),
+          const SizedBox(height: 28),
         ],
       ),
     );
   }
 }
 
-// ── Quick Item model ───────────────────────────────────────────────────────
-class _QuickItem {
-  final String label;
-  final IconData icon;
-  final Color color;
-  final String route;
-  const _QuickItem(this.label, this.icon, this.color, this.route);
+class _RowSkeleton extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ShimmerLoading(width: 170, height: 24, borderRadius: 4),
+          const SizedBox(height: 14),
+          Row(
+            children: List.generate(3, (_) => Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: ShimmerLoading(width: 180, height: 140, borderRadius: 16),
+            )),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
+// ── Error banner ───────────────────────────────────────────────────────────
+class _ErrorBanner extends StatelessWidget {
+  final VoidCallback onRetry;
+  const _ErrorBanner({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.deepRed.withOpacity(0.07),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.deepRed.withOpacity(0.2)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.wifi_off_rounded, color: AppColors.deepRed, size: 20),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text('Could not load content. Check your connection.',
+                style: TextStyle(fontSize: 13, color: AppColors.deepRed, fontWeight: FontWeight.w500)),
+          ),
+          TextButton(
+            onPressed: onRetry,
+            style: TextButton.styleFrom(foregroundColor: AppColors.deepRed, padding: EdgeInsets.zero),
+            child: const Text('Retry', style: TextStyle(fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Helper ─────────────────────────────────────────────────────────────────
+SnackBar _snack(String msg) => SnackBar(
+  content: Text(msg),
+  backgroundColor: AppColors.primaryBlack,
+  behavior: SnackBarBehavior.floating,
+  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+  margin: const EdgeInsets.all(16),
+  duration: const Duration(seconds: 2),
+);
