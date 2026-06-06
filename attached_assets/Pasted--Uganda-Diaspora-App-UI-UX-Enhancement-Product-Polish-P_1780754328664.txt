@@ -1,0 +1,448 @@
+# Uganda Diaspora App – UI/UX Enhancement & Product Polish Phase
+
+The skeleton application has already been generated. Your task now is NOT to rebuild the project but to significantly improve the design, user experience, information architecture, engagement, and overall professionalism of the platform.
+
+The app should feel like a modern national digital platform representing Uganda and its diaspora community worldwide.
+
+## DESIGN SYSTEM
+
+Use a premium color palette throughout the application:
+
+Primary Colors:
+
+* Black (#121212)
+* Dark Orange (#D97706)
+* Deep Red (#B91C1C)
+
+Accent Colors:
+
+* White
+* Light Grey backgrounds
+* Gold accents where appropriate
+
+The application should have:
+
+* Consistent spacing
+* Rounded modern cards
+* Glassmorphism where appropriate
+* Smooth animations
+* Hero transitions
+* Skeleton loaders
+* Empty states
+* Premium typography
+* Modern gradients using black, dark orange and red
+
+The app should feel similar in quality to:
+
+* Airbnb
+* LinkedIn
+* Google News
+* Modern government digital services
+
+---
+
+## SPLASH SCREEN REDESIGN
+
+Replace the current splash screen.
+
+Requirements:
+
+* Full-screen background image from assets/images/
+
+* Dark semi-transparent overlay (opacity 60–70%)
+
+* Uganda Diaspora logo centered
+
+* App name
+
+* Tagline:
+  "Connecting Ugandans Worldwide"
+
+* Smooth fade and scale animations
+
+* Loading animation
+
+* Elegant transition into Home Screen
+
+The splash screen should immediately communicate professionalism and national identity.
+
+---
+
+## REMOVE MANDATORY AUTHENTICATION
+
+Do NOT require login immediately after splash.
+
+Public users should access:
+
+* Home
+* News
+* Embassies
+* Tourism
+* Gallery
+* Webinars
+* Services
+
+Authentication should ONLY be required when users attempt to:
+
+* Open Community section
+* Create a post
+* Like/comment on posts
+* Open Profile page
+* Save content
+
+Implement smart authentication prompts only when necessary.
+
+---
+
+## FIRST-TIME USER EXPERIENCE
+
+Create an onboarding/tutorial system.
+
+For first-time users:
+
+Display guided walkthroughs over important widgets using overlays.
+
+Explain:
+
+* News section
+* Embassies section
+* Tourism section
+* Community section
+* Notifications
+
+The tutorial should appear only once.
+
+Store completion state locally.
+
+Provide "Skip" and "Next" buttons.
+
+Use modern tooltip-style onboarding.
+
+---
+
+## HOME SCREEN COMPLETE REDESIGN
+
+The Home Page should become the strongest part of the application.
+
+### App Bar
+
+Premium app bar with:
+
+* Uganda Diaspora logo
+* Notification icon
+* Search icon
+
+Notification icon should navigate to:
+
+Announcements Page
+
+---
+
+## HOME PAGE ORDER
+
+### 1. Trending News (FIRST SECTION)
+
+This should be the first major section.
+
+Design inspiration:
+Google News + BBC + CNN
+
+Features:
+
+* Large featured headline
+* Hero image
+* News category badges
+* Time posted
+* Save article
+* Share article
+
+Below:
+
+Horizontal trending news cards.
+
+The news section must immediately capture attention.
+
+---
+
+### 2. Announcements Section
+
+Official State House Diaspora announcements.
+
+Different styling from normal news.
+
+Features:
+
+* Pinned announcements
+* Important notices
+* Emergency notices
+* Upcoming events
+
+---
+
+### 3. Quick Access Services
+
+Beautiful icon grid.
+
+Cards for:
+
+* Embassies
+* Tourism
+* Webinars
+* Services
+* Gallery
+* Contact Us
+* Opportunities
+* Emergency Support
+
+Animated interactions.
+
+---
+
+### 4. Message From Head of State House Diaspora Unit
+
+Premium card.
+
+Include:
+
+* Portrait image
+* Welcome message
+* Read More button
+* Video message option
+
+Make this feel official and prestigious.
+
+---
+
+### 5. MDAs Section
+
+Display ministries and government agencies.
+
+Improve current implementation.
+
+Use:
+
+* Logo
+* Description
+* Modern card layouts
+* Website launch in app webview
+
+Add search functionality.
+
+---
+
+### 6. Tourism Showcase
+
+Make tourism highly visual.
+
+Include:
+
+* Beautiful destinations
+* National parks
+* Cultural attractions
+* Explore Uganda button
+
+Use large image cards.
+
+---
+
+### 7. Webinar Section
+
+Display:
+
+* Featured webinar
+* Upcoming webinar
+* Webinar countdown
+* Webinar recordings
+
+Professional video previews.
+
+---
+
+### 8. Community Highlights
+
+Show selected trending community posts.
+
+Encourage participation.
+
+---
+
+## COMMUNITY MODULE REDESIGN
+
+The community section should resemble Facebook/LinkedIn.
+
+Features:
+
+### Feed
+
+* Infinite scrolling
+* Posts
+* Images
+* Videos
+* Text posts
+
+### Post Creation
+
+Users can:
+
+* Upload photos
+* Upload videos
+* Write posts
+* Add hashtags
+
+### Engagement
+
+Users can:
+
+* Like
+* Comment
+* Share
+* Report
+
+### Additional Features
+
+* Trending discussions
+* Country-based groups
+* Diaspora success stories
+* Polls
+
+Modern social feed design.
+
+---
+
+## EMBASSY MODULE REDESIGN
+
+This section should feel world-class.
+
+### Embassy List
+
+Replace simple cards.
+
+Use:
+
+* Large country image
+* Country flag
+* Country name
+* Region tag
+
+Search bar at top.
+
+Filters:
+
+* Europe
+* North America
+* Asia
+* Middle East
+* Africa
+* Australia
+
+---
+
+### Embassy Details
+
+Extremely detailed page.
+
+Include:
+
+* Embassy gallery
+* Ambassador profile
+* Staff directory
+* Contacts
+* Address
+* Email
+* Phone
+* Website
+* Google Maps integration
+* Social media links
+* Emergency contacts
+
+Additional actions:
+
+* Call embassy
+* Email embassy
+* Visit website
+* Navigate using maps
+
+---
+
+## ANNOUNCEMENTS PAGE
+
+Create a dedicated page.
+
+Features:
+
+* Government announcements
+* Diaspora notices
+* Urgent alerts
+* Search announcements
+
+Notification icon opens this page.
+
+Unread indicators.
+
+---
+
+## PROFILE MODULE
+
+Modern profile experience.
+
+Include:
+
+* User photo
+* Country of residence
+* Profession
+* Interests
+* Saved items
+* Activity history
+
+Premium settings UI.
+
+---
+
+## SEARCH EXPERIENCE
+
+Global search.
+
+Users should search:
+
+* News
+* Embassies
+* Tourism
+* Services
+* Webinars
+
+One unified search interface.
+
+---
+
+## MICROINTERACTIONS
+
+Add:
+
+* Page transitions
+* Pull-to-refresh
+* Button animations
+* Hero animations
+* Loading skeletons
+
+Make the app feel alive.
+
+---
+
+## PERFORMANCE
+
+Optimize:
+
+* Image caching
+* Lazy loading
+* Pagination
+* Infinite scrolling
+
+Ensure smooth performance.
+
+---
+
+## FINAL GOAL
+
+Transform the current skeleton app into a flagship government-grade diaspora platform that feels modern, international, visually stunning, and highly engaging.
+
+Prioritize user experience, visual quality, professionalism, accessibility, scalability, and community engagement.
