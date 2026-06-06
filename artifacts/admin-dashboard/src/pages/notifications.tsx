@@ -58,7 +58,7 @@ export default function NotificationsPage() {
             <h1 className="text-2xl font-bold text-slate-900">Notifications</h1>
             <p className="text-slate-500 text-sm mt-1">{data?.total ?? 0} sent</p>
           </div>
-          <Button onClick={() => { setForm(empty()); setOpen(true); }} className="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-semibold gap-2">
+          <Button onClick={() => { setForm(empty()); setOpen(true); }} className="bg-[#121212] hover:bg-[#1f1f1f] text-white font-semibold gap-2">
             <Plus className="w-4 h-4" /> Send Notification
           </Button>
         </div>
@@ -111,7 +111,7 @@ export default function NotificationsPage() {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button onClick={() => send.mutate()} disabled={send.isPending} className="bg-yellow-500 hover:bg-yellow-400 text-slate-900 gap-2">
+              <Button onClick={() => send.mutate()} disabled={send.isPending} className="bg-[#121212] hover:bg-[#1f1f1f] text-white gap-2">
                 <Send className="w-4 h-4" />
                 {send.isPending ? "Sending…" : "Send"}
               </Button>

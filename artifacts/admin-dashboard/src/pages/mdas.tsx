@@ -63,7 +63,7 @@ export default function MdasPage() {
             <h1 className="text-2xl font-bold text-slate-900">MDAs</h1>
             <p className="text-slate-500 text-sm mt-1">Ministries, Departments & Agencies — {filtered.length} total</p>
           </div>
-          <Button onClick={openCreate} className="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-semibold gap-2">
+          <Button onClick={openCreate} className="bg-[#121212] hover:bg-[#1f1f1f] text-white font-semibold gap-2">
             <Plus className="w-4 h-4" /> Add MDA
           </Button>
         </div>
@@ -129,7 +129,7 @@ export default function MdasPage() {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button onClick={() => save.mutate()} disabled={save.isPending} className="bg-yellow-500 hover:bg-yellow-400 text-slate-900">
+              <Button onClick={() => save.mutate()} disabled={save.isPending} className="bg-[#121212] hover:bg-[#1f1f1f] text-white">
                 {save.isPending ? "Saving…" : "Save"}
               </Button>
             </DialogFooter>
