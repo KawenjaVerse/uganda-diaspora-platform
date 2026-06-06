@@ -158,6 +158,14 @@ class ApiClient {
     await _dio.post('/posts/$id/like');
   }
 
+  Future<void> deletePost(int id) async {
+    await _dio.delete('/posts/$id');
+  }
+
+  Future<void> deleteComment(int postId, int commentId) async {
+    await _dio.delete('/posts/$postId/comments/$commentId');
+  }
+
   Future<List<dynamic>> getComments(int postId) async {
     final response = await _dio.get('/posts/$postId/comments');
     return response.data;
