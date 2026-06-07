@@ -12,6 +12,7 @@ import notificationsRouter from "./notifications";
 import mdasRouter from "./mdas";
 import opportunitiesRouter from "./opportunities";
 import dashboardRouter from "./dashboard";
+import registrationsRouter from "./registrations";
 
 const router: IRouter = Router();
 
@@ -28,5 +29,6 @@ router.use(notificationsRouter);
 router.use(mdasRouter);
 router.use(opportunitiesRouter);
 router.use(dashboardRouter);
+router.use(registrationsRouter);
 
 export default router;

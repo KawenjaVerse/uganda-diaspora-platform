@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, Newspaper, Users, Building2, MapPin,
   Video, CalendarDays, MessageSquare, Briefcase, Bell, Landmark, LogOut,
-  ChevronRight,
+  ChevronRight, ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -34,9 +34,10 @@ const navGroups = [
   {
     label: "People",
     items: [
-      { href: "/users",         label: "Users",         icon: Users       },
-      { href: "/community",     label: "Community",     icon: MessageSquare},
-      { href: "/notifications", label: "Notifications", icon: Bell        },
+      { href: "/users",         label: "Users",         icon: Users          },
+      { href: "/registrations", label: "Registrations", icon: ClipboardList  },
+      { href: "/community",     label: "Community",     icon: MessageSquare  },
+      { href: "/notifications", label: "Notifications", icon: Bell           },
     ],
   },
 ];
@@ -92,24 +93,24 @@ export function Sidebar() {
               {group.items.map(({ href, label, icon: Icon }) => {
                 const active = isActive(href);
                 return (
-                  <Link key={href} href={href}>
-                    <a
+                  <Link
+                    key={href}
+                    href={href}
+                    className={cn(
+                      "flex items-center gap-2.5 px-3 py-[7px] rounded-lg text-[12.5px] font-medium transition-all duration-150 group cursor-pointer",
+                      active
+                        ? "bg-[#D97706]/15 text-[#D97706]"
+                        : "text-white/45 hover:text-white hover:bg-white/5"
+                    )}
+                  >
+                    <Icon
                       className={cn(
-                        "flex items-center gap-2.5 px-3 py-[7px] rounded-lg text-[12.5px] font-medium transition-all duration-150 group cursor-pointer",
-                        active
-                          ? "bg-[#D97706]/15 text-[#D97706]"
-                          : "text-white/45 hover:text-white hover:bg-white/5"
+                        "w-3.5 h-3.5 shrink-0",
+                        active ? "text-[#D97706]" : "text-white/35 group-hover:text-white/70"
                       )}
-                    >
-                      <Icon
-                        className={cn(
-                          "w-3.5 h-3.5 shrink-0",
-                          active ? "text-[#D97706]" : "text-white/35 group-hover:text-white/70"
-                        )}
-                      />
-                      <span className="flex-1 truncate">{label}</span>
-                      {active && <ChevronRight className="w-3 h-3 text-[#D97706] shrink-0" />}
-                    </a>
+                    />
+                    <span className="flex-1 truncate">{label}</span>
+                    {active && <ChevronRight className="w-3 h-3 text-[#D97706] shrink-0" />}
                   </Link>
                 );
               })}

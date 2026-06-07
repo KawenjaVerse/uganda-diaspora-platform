@@ -19,11 +19,12 @@ import '../../features/community/screens/community_screen.dart';
 import '../../features/opportunities/screens/opportunities_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
 import '../../features/notifications/screens/notifications_screen.dart';
+import '../../features/services/screens/services_screen.dart';
+import '../../features/contact/screens/contact_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
 
-/// Routes that require the user to be signed in.
 const _protectedRoutes = ['/community', '/profile', '/notifications'];
 
 GoRouter createRouter() {
@@ -31,7 +32,6 @@ GoRouter createRouter() {
     navigatorKey: _rootNavigatorKey,
     initialLocation: '/splash',
     redirect: (context, state) async {
-      // Splash is always allowed
       if (state.matchedLocation == '/splash') return null;
 
       final prefs = await SharedPreferences.getInstance();
@@ -41,16 +41,12 @@ GoRouter createRouter() {
       final isOnAuthPage =
           state.matchedLocation == '/login' || state.matchedLocation == '/register';
 
-      // If accessing a protected route without being logged in → login
       final requiresAuth =
           _protectedRoutes.any((r) => state.matchedLocation.startsWith(r));
       if (!isAuth && requiresAuth) return '/login';
 
-      // Logged-in users visiting auth pages → home
       if (isAuth && isOnAuthPage) return '/';
 
-      // Public routes (home, news, embassies, tourism, webinars, events,
-      // opportunities, statehouse) are accessible without login
       return null;
     },
     routes: [
@@ -66,11 +62,21 @@ GoRouter createRouter() {
         path: '/register',
         builder: (context, state) => const RegisterScreen(),
       ),
-      // Statehouse message — full screen, outside shell
       GoRoute(
         path: '/statehouse',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const StatehouseMessageScreen(),
+      ),
+      // Full-screen pages (outside shell so they push on top)
+      GoRoute(
+        path: '/services',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const ServicesScreen(),
+      ),
+      GoRoute(
+        path: '/contact',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const ContactScreen(),
       ),
       ShellRoute(
         navigatorKey: _shellNavigatorKey,
@@ -113,12 +119,12 @@ GoRouter createRouter() {
               ),
             ],
           ),
-          GoRoute(path: '/webinars',     builder: (_, __) => const WebinarsScreen()),
-          GoRoute(path: '/events',       builder: (_, __) => const EventsScreen()),
-          GoRoute(path: '/community',    builder: (_, __) => const CommunityScreen()),
-          GoRoute(path: '/opportunities',builder: (_, __) => const OpportunitiesScreen()),
-          GoRoute(path: '/profile',      builder: (_, __) => const ProfileScreen()),
-          GoRoute(path: '/notifications',builder: (_, __) => const NotificationsScreen()),
+          GoRoute(path: '/webinars',      builder: (_, __) => const WebinarsScreen()),
+          GoRoute(path: '/events',        builder: (_, __) => const EventsScreen()),
+          GoRoute(path: '/community',     builder: (_, __) => const CommunityScreen()),
+          GoRoute(path: '/opportunities', builder: (_, __) => const OpportunitiesScreen()),
+          GoRoute(path: '/profile',       builder: (_, __) => const ProfileScreen()),
+          GoRoute(path: '/notifications', builder: (_, __) => const NotificationsScreen()),
         ],
       ),
     ],

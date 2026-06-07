@@ -37,112 +37,389 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (mounted) context.go('/login');
   }
 
+  String get _initials {
+    final name = _user?['fullName'] ?? 'U';
+    final parts = name.toString().trim().split(' ');
+    if (parts.length >= 2) return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    return parts[0].isNotEmpty ? parts[0][0].toUpperCase() : 'U';
+  }
+
+  String _memberSince() {
+    final created = _user?['createdAt'];
+    if (created == null) return 'Member';
+    try {
+      final dt = DateTime.parse(created.toString());
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      return '${months[dt.month - 1]} ${dt.year}';
+    } catch (_) { return 'Member'; }
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profile'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit_outlined),
-            onPressed: () {},
-          ),
-        ],
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                children: [
-                  // Avatar
-                  Stack(
-                    alignment: Alignment.bottomRight,
-                    children: [
-                      CircleAvatar(
-                        radius: 50,
-                        backgroundColor: AppColors.primary.withOpacity(0.1),
-                        backgroundImage: _user?['avatarUrl'] != null ? NetworkImage(_user!['avatarUrl']) : null,
-                        child: _user?['avatarUrl'] == null
-                            ? Text(
-                                (_user?['fullName'] ?? 'U')[0].toUpperCase(),
-                                style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w700, color: AppColors.primary),
-                              )
-                            : null,
+      backgroundColor: AppColors.backgroundLight,
+      body: CustomScrollView(
+        slivers: [
+          // ── Hero Header ──────────────────────────────────────────────
+          SliverAppBar(
+            expandedHeight: 240,
+            pinned: true,
+            backgroundColor: AppColors.primaryBlack,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.edit_outlined, color: Colors.white, size: 20),
+                onPressed: () => _showEditSheet(context),
+                tooltip: 'Edit Profile',
+              ),
+              const SizedBox(width: 4),
+            ],
+            flexibleSpace: FlexibleSpaceBar(
+              background: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF121212), Color(0xFF1C0800)],
+                  ),
+                ),
+                child: Stack(
+                  children: [
+                    Positioned(
+                      right: -60, top: -60,
+                      child: Container(
+                        width: 220, height: 220,
+                        decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.darkOrange.withOpacity(0.07)),
                       ),
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
-                        child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 14),
+                    ),
+                    SafeArea(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 50, 20, 16),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            // Avatar
+                            Stack(
+                              alignment: Alignment.bottomRight,
+                              children: [
+                                Container(
+                                  width: 84, height: 84,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: const LinearGradient(
+                                      colors: [AppColors.darkOrange, Color(0xFFB45309)],
+                                    ),
+                                  ),
+                                  child: _user?['avatarUrl'] != null
+                                      ? ClipOval(child: Image.network(_user!['avatarUrl'], fit: BoxFit.cover))
+                                      : Center(child: Text(_initials, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: Colors.white))),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: const BoxDecoration(color: AppColors.primaryBlack, shape: BoxShape.circle),
+                                  child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 12),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Text(_user?['fullName'] ?? 'User', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -0.3)),
+                            const SizedBox(height: 4),
+                            Text(_user?['email'] ?? '', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                            const SizedBox(height: 10),
+                            // Role badge
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AppColors.darkOrange.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: AppColors.darkOrange.withOpacity(0.4)),
+                              ),
+                              child: Text(
+                                (_user?['role'] ?? 'member').toString().toUpperCase(),
+                                style: const TextStyle(color: AppColors.darkOrange, fontWeight: FontWeight.w700, fontSize: 10, letterSpacing: 1),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── Stats Row ─────────────────────────────────────────
+                  Container(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey.shade100),
+                    ),
+                    child: Row(
+                      children: [
+                        _StatItem(label: 'Member Since', value: _memberSince()),
+                        _Divider(),
+                        _StatItem(label: 'Country', value: _user?['country'] ?? '—'),
+                        _Divider(),
+                        _StatItem(label: 'Role', value: (_user?['role'] ?? 'member').toString().capitalize()),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // ── Quick Access ──────────────────────────────────────
+                  _SectionHeader('Quick Access'),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _QuickTile(
+                          icon: Icons.miscellaneous_services_rounded,
+                          label: 'Our Services',
+                          color: AppColors.darkOrange,
+                          onTap: () => context.push('/services'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _QuickTile(
+                          icon: Icons.contact_support_rounded,
+                          label: 'Contact Us',
+                          color: AppColors.deepRed,
+                          onTap: () => context.push('/contact'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _QuickTile(
+                          icon: Icons.how_to_reg_rounded,
+                          label: 'Register',
+                          color: const Color(0xFF2563EB),
+                          onTap: () {
+                            // Open diaspora registration sheet
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Use the Register button on the Home screen')),
+                            );
+                          },
+                        ),
                       ),
                     ],
                   ),
+
                   const SizedBox(height: 16),
-                  Text(_user?['fullName'] ?? '', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
-                  Text(_user?['email'] ?? '', style: const TextStyle(color: AppColors.textSecondaryLight, fontSize: 14)),
-                  if (_user?['country'] != null) ...[
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.location_on_outlined, size: 14, color: AppColors.textSecondaryLight),
-                        const SizedBox(width: 4),
-                        Text(_user!['country'], style: const TextStyle(color: AppColors.textSecondaryLight, fontSize: 13)),
-                      ],
-                    ),
-                  ],
+
+                  // ── Navigation ────────────────────────────────────────
+                  _SectionHeader('Explore'),
                   const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      (_user?['role'] ?? 'member').toString().toUpperCase(),
-                      style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600, fontSize: 12),
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  _buildMenuSection([
-                    (Icons.person_outline_rounded, 'Edit Profile', () {}),
-                    (Icons.notifications_outlined, 'Notifications', () => context.go('/notifications')),
-                    (Icons.work_outline_rounded, 'Opportunities', () => context.go('/opportunities')),
-                    (Icons.event_outlined, 'Events', () => context.go('/events')),
-                    (Icons.ondemand_video_rounded, 'Webinars', () => context.go('/webinars')),
+                  _MenuSection([
+                    _MenuItem(Icons.notifications_outlined, 'Notifications', () => context.go('/notifications')),
+                    _MenuItem(Icons.work_outline_rounded, 'Opportunities', () => context.go('/opportunities')),
+                    _MenuItem(Icons.event_outlined, 'Events', () => context.go('/events')),
+                    _MenuItem(Icons.ondemand_video_rounded, 'Webinars', () => context.go('/webinars')),
+                    _MenuItem(Icons.travel_explore_rounded, 'Tourism', () => context.go('/tourism')),
                   ]),
+
                   const SizedBox(height: 16),
-                  _buildMenuSection([
-                    (Icons.help_outline_rounded, 'Help & Support', () {}),
-                    (Icons.info_outline_rounded, 'About Uganda Diaspora', () {}),
-                    (Icons.privacy_tip_outlined, 'Privacy Policy', () {}),
+
+                  // ── Support ───────────────────────────────────────────
+                  _SectionHeader('Support'),
+                  const SizedBox(height: 8),
+                  _MenuSection([
+                    _MenuItem(Icons.help_outline_rounded, 'Help & Support', () => context.push('/contact')),
+                    _MenuItem(Icons.info_outline_rounded, 'About Uganda Diaspora', () {}),
+                    _MenuItem(Icons.privacy_tip_outlined, 'Privacy Policy', () {}),
                   ]),
-                  const SizedBox(height: 16),
+
+                  const SizedBox(height: 20),
+
+                  // ── Sign Out ──────────────────────────────────────────
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
                       onPressed: _logout,
-                      icon: const Icon(Icons.logout_rounded, color: AppColors.error),
-                      label: const Text('Sign Out', style: TextStyle(color: AppColors.error)),
+                      icon: const Icon(Icons.logout_rounded, color: AppColors.error, size: 18),
+                      label: const Text('Sign Out', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w600)),
                       style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: AppColors.error),
+                        side: BorderSide(color: AppColors.error.withOpacity(0.4)),
                         padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                     ),
                   ),
+
                   const SizedBox(height: 40),
                 ],
               ),
             ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildMenuSection(List<(IconData, String, VoidCallback)> items) {
+  void _showEditSheet(BuildContext context) {
+    final nameCtrl = TextEditingController(text: _user?['fullName'] ?? '');
+    final countryCtrl = TextEditingController(text: _user?['country'] ?? '');
+    final professionCtrl = TextEditingController(text: _user?['profession'] ?? '');
+    final bioCtrl = TextEditingController(text: _user?['bio'] ?? '');
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(2)))),
+              const SizedBox(height: 20),
+              const Text('Edit Profile', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.primaryBlack)),
+              const SizedBox(height: 20),
+              _EditField(ctrl: nameCtrl, label: 'Full Name', icon: Icons.person_outline_rounded),
+              const SizedBox(height: 12),
+              _EditField(ctrl: countryCtrl, label: 'Country', icon: Icons.public_rounded),
+              const SizedBox(height: 12),
+              _EditField(ctrl: professionCtrl, label: 'Profession', icon: Icons.work_outline_rounded),
+              const SizedBox(height: 12),
+              _EditField(ctrl: bioCtrl, label: 'Bio', icon: Icons.edit_note_rounded, maxLines: 3),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    setState(() {
+                      if (_user != null) {
+                        _user!['fullName'] = nameCtrl.text;
+                        _user!['country'] = countryCtrl.text;
+                        _user!['profession'] = professionCtrl.text;
+                        _user!['bio'] = bioCtrl.text;
+                      }
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Profile updated'), backgroundColor: AppColors.primaryBlack),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryBlack,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 52),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                  ),
+                  child: const Text('Save Changes'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+class _SectionHeader extends StatelessWidget {
+  final String text;
+  const _SectionHeader(this.text);
+  @override
+  Widget build(BuildContext context) => Text(text, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.textSecondaryLight, letterSpacing: 0.5));
+}
+
+class _StatItem extends StatelessWidget {
+  final String label, value;
+  const _StatItem({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+    child: Column(
+      children: [
+        Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.primaryBlack), textAlign: TextAlign.center, overflow: TextOverflow.ellipsis),
+        const SizedBox(height: 3),
+        Text(label, style: const TextStyle(fontSize: 10, color: AppColors.textSecondaryLight, fontWeight: FontWeight.w500), textAlign: TextAlign.center),
+      ],
+    ),
+  );
+}
+
+class _Divider extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) => Container(width: 1, height: 32, color: Colors.grey.shade100);
+}
+
+class _QuickTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+  const _QuickTile({required this.icon, required this.label, required this.color, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.grey.shade100),
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const SizedBox(height: 8),
+            Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primaryBlack), textAlign: TextAlign.center, maxLines: 2),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MenuItem {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  const _MenuItem(this.icon, this.label, this.onTap);
+}
+
+class _MenuSection extends StatelessWidget {
+  final List<_MenuItem> items;
+  const _MenuSection(this.items);
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.5)),
+        border: Border.all(color: Colors.grey.shade100),
       ),
       child: Column(
         children: items.asMap().entries.map((entry) {
@@ -151,18 +428,57 @@ class _ProfileScreenState extends State<ProfileScreen> {
           return Column(
             children: [
               ListTile(
-                leading: Icon(item.$1, color: AppColors.primary, size: 22),
-                title: Text(item.$2, style: const TextStyle(fontSize: 14)),
-                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.textSecondaryLight),
-                onTap: item.$3,
+                leading: Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(color: AppColors.primaryBlack.withOpacity(0.06), borderRadius: BorderRadius.circular(8)),
+                  child: Icon(item.icon, color: AppColors.primaryBlack, size: 16),
+                ),
+                title: Text(item.label, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500)),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: AppColors.textSecondaryLight),
+                onTap: item.onTap,
                 dense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
               ),
               if (i < items.length - 1)
-                Divider(height: 1, indent: 56, color: Theme.of(context).dividerColor.withOpacity(0.4)),
+                Divider(height: 1, indent: 56, endIndent: 14, color: Colors.grey.shade100),
             ],
           );
         }).toList(),
       ),
     );
   }
+}
+
+class _EditField extends StatelessWidget {
+  final TextEditingController ctrl;
+  final String label;
+  final IconData icon;
+  final int maxLines;
+  const _EditField({required this.ctrl, required this.label, required this.icon, this.maxLines = 1});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primaryBlack)),
+        const SizedBox(height: 6),
+        TextField(
+          controller: ctrl,
+          maxLines: maxLines,
+          decoration: InputDecoration(
+            prefixIcon: Icon(icon, size: 18, color: AppColors.textSecondaryLight),
+            filled: true,
+            fillColor: AppColors.inputBackgroundLight,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+extension StringExt on String {
+  String capitalize() => isEmpty ? this : '${this[0].toUpperCase()}${substring(1)}';
 }

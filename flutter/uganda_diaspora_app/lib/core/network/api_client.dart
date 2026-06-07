@@ -84,12 +84,7 @@ class ApiClient {
   }
 
   // Embassies
-  Future<Map<String, dynamic>> getEmbassies({
-    int page = 1,
-    int limit = 50,
-    String? search,
-    String? continent,
-  }) async {
+  Future<Map<String, dynamic>> getEmbassies({int page = 1, int limit = 50, String? search, String? continent}) async {
     final response = await _dio.get('/embassies', queryParameters: {
       'page': page,
       'limit': limit,
@@ -194,6 +189,36 @@ class ApiClient {
   // Notifications
   Future<Map<String, dynamic>> getNotifications({int page = 1}) async {
     final response = await _dio.get('/notifications', queryParameters: {'page': page});
+    return response.data;
+  }
+
+  // Diaspora Registrations
+  Future<Map<String, dynamic>> submitDiasporaRegistration({
+    required String fullName,
+    String? dateOfBirth,
+    String? gender,
+    String? nationalId,
+    String? country,
+    String? city,
+    String? phone,
+    String? email,
+    String? profession,
+    String? yearsAbroad,
+    String? reasonForDiaspora,
+  }) async {
+    final response = await _dio.post('/registrations', data: {
+      'fullName': fullName,
+      if (dateOfBirth != null && dateOfBirth.isNotEmpty) 'dateOfBirth': dateOfBirth,
+      if (gender != null && gender.isNotEmpty) 'gender': gender,
+      if (nationalId != null && nationalId.isNotEmpty) 'nationalId': nationalId,
+      if (country != null && country.isNotEmpty) 'country': country,
+      if (city != null && city.isNotEmpty) 'city': city,
+      if (phone != null && phone.isNotEmpty) 'phone': phone,
+      if (email != null && email.isNotEmpty) 'email': email,
+      if (profession != null && profession.isNotEmpty) 'profession': profession,
+      if (yearsAbroad != null && yearsAbroad.isNotEmpty) 'yearsAbroad': yearsAbroad,
+      if (reasonForDiaspora != null && reasonForDiaspora.isNotEmpty) 'reasonForDiaspora': reasonForDiaspora,
+    });
     return response.data;
   }
 }

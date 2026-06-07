@@ -3,7 +3,7 @@ import { api } from "@/lib/api";
 import {
   Users, Newspaper, Building2, CalendarDays, Video,
   MessageSquare, Briefcase, TrendingUp, ArrowUpRight,
-  Globe, Bell,
+  Globe, Bell, ClipboardList,
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/app-layout";
 import { useAuth } from "@/hooks/useAuth";
@@ -27,6 +27,8 @@ interface ActivityItem {
   description: string;
   createdAt: string;
 }
+
+interface RegStats { total: number; }
 
 const statCards = [
   { key: "totalUsers"          as keyof Stats, label: "Total Members",    icon: Users,         accent: "#2563EB", href: "/users"         },
@@ -60,6 +62,11 @@ export default function Dashboard() {
   const { data: activity } = useQuery<ActivityItem[]>({
     queryKey: ["activity"],
     queryFn: () => api.get("/dashboard/activity"),
+  });
+
+  const { data: regStats } = useQuery<RegStats>({
+    queryKey: ["registrations-stats"],
+    queryFn: () => api.get("/registrations/stats"),
   });
 
   const firstName = user?.fullName?.split(" ")[0] ?? "Admin";
@@ -104,10 +111,10 @@ export default function Dashboard() {
                   <p className="text-[#D97706] font-black text-xl leading-none">{stats?.publishedNewsCount ?? "—"}</p>
                   <p className="text-white/35 text-[10px] mt-1 whitespace-nowrap">Published</p>
                 </div>
-                <div className="bg-white/5 border border-white/8 rounded-xl px-4 py-3 text-center">
-                  <p className="text-[#D97706] font-black text-xl leading-none">{stats?.upcomingEventsCount ?? "—"}</p>
-                  <p className="text-white/35 text-[10px] mt-1 whitespace-nowrap">Upcoming</p>
-                </div>
+                <a href="/registrations" className="bg-[#D97706]/15 border border-[#D97706]/30 rounded-xl px-4 py-3 text-center hover:bg-[#D97706]/20 transition-colors cursor-pointer">
+                  <p className="text-[#D97706] font-black text-xl leading-none">{regStats?.total ?? "—"}</p>
+                  <p className="text-white/35 text-[10px] mt-1 whitespace-nowrap">Registrations</p>
+                </a>
               </div>
             </div>
           </div>
@@ -132,10 +139,11 @@ export default function Dashboard() {
             </div>
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {statCards.map(({ key, label, icon: Icon, accent }) => (
-                <div
+              {statCards.map(({ key, label, icon: Icon, accent, href }) => (
+                <a
                   key={key}
-                  className="bg-white rounded-2xl p-5 border border-slate-100 hover:shadow-md transition-shadow group"
+                  href={href}
+                  className="bg-white rounded-2xl p-5 border border-slate-100 hover:shadow-md transition-shadow group block"
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div
@@ -155,13 +163,30 @@ export default function Dashboard() {
                   >
                     {stats?.[key]?.toLocaleString() ?? "—"}
                   </p>
-                  {/* Accent bottom bar */}
                   <div
                     className="mt-3 h-0.5 rounded-full"
                     style={{ background: `linear-gradient(to right, ${accent}, transparent)` }}
                   />
-                </div>
+                </a>
               ))}
+
+              {/* Registrations card */}
+              <a
+                href="/registrations"
+                className="bg-white rounded-2xl p-5 border border-slate-100 hover:shadow-md transition-shadow group block"
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "#D97706" + "14" }}>
+                    <ClipboardList className="w-5 h-5 text-[#D97706]" />
+                  </div>
+                  <ArrowUpRight className="w-4 h-4 text-slate-300 group-hover:text-slate-500 transition-colors" />
+                </div>
+                <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-1">Diaspora Registrations</p>
+                <p className="text-3xl font-black tracking-tight text-[#D97706]">
+                  {regStats?.total?.toLocaleString() ?? "—"}
+                </p>
+                <div className="mt-3 h-0.5 rounded-full" style={{ background: "linear-gradient(to right, #D97706, transparent)" }} />
+              </a>
             </div>
           </div>
 
@@ -219,13 +244,14 @@ export default function Dashboard() {
               </div>
               <div className="p-3 space-y-1">
                 {[
-                  { label: "Publish News",        href: "/news",          color: "#16A34A", icon: Newspaper    },
-                  { label: "Manage Members",       href: "/users",         color: "#2563EB", icon: Users        },
-                  { label: "Embassy Directory",    href: "/embassies",     color: "#7C3AED", icon: Building2    },
-                  { label: "Schedule Webinar",     href: "/webinars",      color: "#B91C1C", icon: Video        },
-                  { label: "Post Opportunity",     href: "/opportunities", color: "#059669", icon: Briefcase    },
-                  { label: "Send Notification",    href: "/notifications", color: "#D97706", icon: Bell        },
-                  { label: "Community Posts",      href: "/community",     color: "#0891B2", icon: MessageSquare},
+                  { label: "Publish News",        href: "/news",          color: "#16A34A", icon: Newspaper     },
+                  { label: "Manage Members",       href: "/users",         color: "#2563EB", icon: Users         },
+                  { label: "Embassy Directory",    href: "/embassies",     color: "#7C3AED", icon: Building2     },
+                  { label: "Schedule Webinar",     href: "/webinars",      color: "#B91C1C", icon: Video         },
+                  { label: "Post Opportunity",     href: "/opportunities", color: "#059669", icon: Briefcase     },
+                  { label: "Registrations",        href: "/registrations", color: "#D97706", icon: ClipboardList },
+                  { label: "Send Notification",    href: "/notifications", color: "#0891B2", icon: Bell         },
+                  { label: "Community Posts",      href: "/community",     color: "#6B7280", icon: MessageSquare },
                 ].map(({ label, href, color, icon: Icon }) => (
                   <a
                     key={href}

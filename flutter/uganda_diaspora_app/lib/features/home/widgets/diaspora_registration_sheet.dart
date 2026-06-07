@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/network/api_client.dart';
 
 void showDiasporaRegistrationSheet(BuildContext context) {
   showModalBottomSheet(
@@ -22,6 +23,7 @@ class _RegistrationSheetState extends State<_RegistrationSheet> {
   final PageController _pageCtrl = PageController();
   int _currentPage = 0;
   bool _submitted = false;
+  bool _submitting = false;
 
   // Page 1 - Personal Info
   final _fullNameCtrl = TextEditingController();
@@ -81,11 +83,34 @@ class _RegistrationSheetState extends State<_RegistrationSheet> {
     }
   }
 
-  void _submit() {
-    setState(() => _submitted = true);
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) Navigator.pop(context);
-    });
+  Future<void> _submit() async {
+    setState(() => _submitting = true);
+    try {
+      await ApiClient.instance.submitDiasporaRegistration(
+        fullName: _fullNameCtrl.text,
+        dateOfBirth: _dobCtrl.text,
+        gender: _gender,
+        nationalId: _nationalIdCtrl.text,
+        country: _countryCtrl.text,
+        city: _cityCtrl.text,
+        phone: _phoneCtrl.text,
+        email: _emailCtrl.text,
+        profession: _professionCtrl.text,
+        yearsAbroad: _yearsCtrl.text,
+        reasonForDiaspora: _reason,
+      );
+      if (mounted) setState(() { _submitted = true; _submitting = false; });
+    } catch (_) {
+      if (mounted) {
+        setState(() => _submitting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Submission failed. Please check your connection and try again.'),
+            backgroundColor: Color(0xFFB91C1C),
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -403,7 +428,7 @@ class _RegistrationSheetState extends State<_RegistrationSheet> {
           Expanded(
             flex: 2,
             child: ElevatedButton(
-              onPressed: _nextPage,
+              onPressed: _submitting ? null : _nextPage,
               style: ElevatedButton.styleFrom(
                 backgroundColor: _currentPage == 2 ? AppColors.ugandaRed : Colors.black,
                 foregroundColor: Colors.white,
@@ -411,10 +436,12 @@ class _RegistrationSheetState extends State<_RegistrationSheet> {
                 elevation: 0,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              child: Text(
-                _currentPage == 2 ? 'Submit Registration' : 'Continue',
-                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-              ),
+              child: _submitting && _currentPage == 2
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : Text(
+                      _currentPage == 2 ? 'Submit Registration' : 'Continue',
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                    ),
             ),
           ),
         ],
