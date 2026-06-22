@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/api_client.dart';
 import '../../../shared/widgets/network_image_widget.dart';
@@ -917,64 +918,95 @@ class _MdaCard extends StatelessWidget {
   final dynamic item;
   const _MdaCard({required this.item});
 
+  Future<void> _openWebsite(BuildContext context) async {
+    final website = item['website'] as String?;
+    if (website == null || website.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No website available for this agency')),
+      );
+      return;
+    }
+    final url = website.startsWith('http') ? website : 'https://$website';
+    final uri = Uri.parse(url);
+    if (!await launchUrl(uri, mode: LaunchMode.inAppBrowserView)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final name        = item['name']        as String? ?? '';
     final description = item['description'] as String? ?? '';
+    final hasWebsite  = (item['website'] as String?)?.isNotEmpty ?? false;
 
-    return Container(
-      width: 205,
-      margin: const EdgeInsets.only(right: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.dividerLight),
-      ),
-      clipBehavior: Clip.hardEdge,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Flag stripe header
-          Row(
-            children: [
-              AppColors.ugandaBlack,
-              AppColors.ugandaYellow,
-              AppColors.ugandaRed,
-            ].map((c) => Expanded(child: Container(height: 44, color: c))).toList(),
-          ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(name,
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 4),
-                  Text(description,
-                      style: const TextStyle(fontSize: 10.5, color: AppColors.textSecondaryLight, height: 1.4),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis),
-                  const Spacer(),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryBlack,
-                        borderRadius: BorderRadius.circular(6),
+    return GestureDetector(
+      onTap: () => _openWebsite(context),
+      child: Container(
+        width: 205,
+        margin: const EdgeInsets.only(right: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.dividerLight),
+        ),
+        clipBehavior: Clip.hardEdge,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Flag stripe header
+            Row(
+              children: [
+                AppColors.ugandaBlack,
+                AppColors.ugandaYellow,
+                AppColors.ugandaRed,
+              ].map((c) => Expanded(child: Container(height: 44, color: c))).toList(),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(name,
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 4),
+                    Text(description,
+                        style: const TextStyle(fontSize: 10.5, color: AppColors.textSecondaryLight, height: 1.4),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis),
+                    const Spacer(),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: hasWebsite ? AppColors.primaryBlack : Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.open_in_browser_rounded, size: 10,
+                                color: hasWebsite ? Colors.white : Colors.grey.shade500),
+                            const SizedBox(width: 4),
+                            Text('Visit Website',
+                                style: TextStyle(
+                                  color: hasWebsite ? Colors.white : Colors.grey.shade500,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                )),
+                          ],
+                        ),
                       ),
-                      child: const Text('Visit',
-                          style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

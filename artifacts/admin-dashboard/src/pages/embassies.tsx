@@ -21,6 +21,7 @@ interface Embassy {
   phone: string;
   email: string;
   ambassadorName: string;
+  ambassadorImageUrl: string;
   officeHours: string;
   servicesOffered: string;
   isActive: boolean;
@@ -28,7 +29,7 @@ interface Embassy {
 
 interface ListResponse { data: Embassy[]; total: number; }
 
-const empty = (): Partial<Embassy> => ({ country: "", city: "", continent: "", address: "", phone: "", email: "", ambassadorName: "", officeHours: "", servicesOffered: "", isActive: true });
+const empty = (): Partial<Embassy> => ({ country: "", city: "", continent: "", address: "", phone: "", email: "", ambassadorName: "", ambassadorImageUrl: "", officeHours: "", servicesOffered: "", isActive: true });
 
 export default function EmbassiesPage() {
   const qc = useQueryClient();
@@ -121,7 +122,26 @@ export default function EmbassiesPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1"><Label>Continent</Label><Input value={editing.continent ?? ""} onChange={e => setEditing(p => ({ ...p, continent: e.target.value }))} /></div>
-                <div className="space-y-1"><Label>Ambassador</Label><Input value={editing.ambassadorName ?? ""} onChange={e => setEditing(p => ({ ...p, ambassadorName: e.target.value }))} /></div>
+                <div className="space-y-1"><Label>Ambassador Name</Label><Input value={editing.ambassadorName ?? ""} onChange={e => setEditing(p => ({ ...p, ambassadorName: e.target.value }))} /></div>
+              </div>
+              <div className="space-y-1">
+                <Label>Ambassador Photo URL</Label>
+                <Input
+                  placeholder="https://example.com/photo.jpg"
+                  value={editing.ambassadorImageUrl ?? ""}
+                  onChange={e => setEditing(p => ({ ...p, ambassadorImageUrl: e.target.value }))}
+                />
+                {editing.ambassadorImageUrl && (
+                  <div className="flex items-center gap-3 mt-2">
+                    <img
+                      src={editing.ambassadorImageUrl}
+                      alt="Ambassador preview"
+                      className="w-12 h-12 rounded-full object-cover border border-slate-200"
+                      onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                    />
+                    <span className="text-xs text-slate-400">Preview</span>
+                  </div>
+                )}
               </div>
               <div className="space-y-1"><Label>Address</Label><Input value={editing.address ?? ""} onChange={e => setEditing(p => ({ ...p, address: e.target.value }))} /></div>
               <div className="grid grid-cols-2 gap-4">
