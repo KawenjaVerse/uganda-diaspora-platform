@@ -1,21 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/network/api_client.dart';
 
 class ContactScreen extends StatelessWidget {
   const ContactScreen({super.key});
 
-  void _copy(BuildContext context, String text, String label) {
-    Clipboard.setData(ClipboardData(text: text));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$label copied to clipboard'),
-        backgroundColor: AppColors.primaryBlack,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+  Future<void> _launch(BuildContext context, String url) async {
+    final uri = Uri.parse(url);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open: $url'), backgroundColor: AppColors.primaryBlack),
+        );
+      }
+    }
   }
 
   @override
@@ -44,7 +43,7 @@ class ContactScreen extends StatelessWidget {
                 children: const [
                   Text('Contact Us', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: -0.3)),
                   SizedBox(height: 2),
-                  Text('Ministry of Foreign Affairs, Uganda', style: TextStyle(fontSize: 11, color: Colors.white54, fontWeight: FontWeight.w400)),
+                  Text('State House Diaspora Unit', style: TextStyle(fontSize: 11, color: Colors.white54, fontWeight: FontWeight.w400)),
                 ],
               ),
               background: Stack(
@@ -80,6 +79,7 @@ class ContactScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // ── Get In Touch ──────────────────────────────────────
                   _SectionLabel('Get In Touch'),
                   const SizedBox(height: 12),
 
@@ -89,8 +89,8 @@ class ContactScreen extends StatelessWidget {
                     label: 'Phone',
                     value: '+256 414 259 679',
                     subtitle: 'Mon–Fri, 8:00 AM – 5:00 PM EAT',
-                    onTap: () => _copy(context, '+256414259679', 'Phone number'),
-                    actionLabel: 'Copy Number',
+                    actionLabel: 'Call Now',
+                    onTap: () => _launch(context, 'tel:+256414259679'),
                   ),
 
                   const SizedBox(height: 12),
@@ -99,13 +99,27 @@ class ContactScreen extends StatelessWidget {
                     icon: Icons.email_rounded,
                     color: AppColors.darkOrange,
                     label: 'Email',
-                    value: 'diaspora@mfa.go.ug',
+                    value: 'info@diasporaaffairs.go.ug',
                     subtitle: 'We respond within 48 hours',
-                    onTap: () => _copy(context, 'diaspora@mfa.go.ug', 'Email address'),
-                    actionLabel: 'Copy Email',
+                    actionLabel: 'Send Email',
+                    onTap: () => _launch(context, 'mailto:info@diasporaaffairs.go.ug'),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  _ContactCard(
+                    icon: Icons.chat_rounded,
+                    color: const Color(0xFF25D366),
+                    label: 'WhatsApp Community',
+                    value: 'Join our WhatsApp Group',
+                    subtitle: 'Connect with diaspora members',
+                    actionLabel: 'Join Now',
+                    onTap: () => _launch(context, 'https://chat.whatsapp.com/L4mwKGHY1Ca3UCb5yC1l7K'),
                   ),
 
                   const SizedBox(height: 24),
+
+                  // ── Follow Us ─────────────────────────────────────────
                   _SectionLabel('Follow Us'),
                   const SizedBox(height: 12),
 
@@ -113,12 +127,11 @@ class ContactScreen extends StatelessWidget {
                     children: [
                       Expanded(
                         child: _SocialCard(
-                          icon: Icons.close,
                           customWidget: const Text('𝕏', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white)),
                           color: const Color(0xFF121212),
                           label: 'X (Twitter)',
-                          handle: '@MFAUganda',
-                          onTap: () => _copy(context, '@MFAUganda', 'X handle'),
+                          handle: '@SHUDiasporaUnit',
+                          onTap: () => _launch(context, 'https://x.com/SHUDiasporaUnit?lang=en'),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -127,14 +140,16 @@ class ContactScreen extends StatelessWidget {
                           icon: Icons.play_circle_filled_rounded,
                           color: const Color(0xFFDC2626),
                           label: 'YouTube',
-                          handle: '@UgandaMFA',
-                          onTap: () => _copy(context, 'youtube.com/@UgandaMFA', 'YouTube link'),
+                          handle: '@StateHouseDiaspora',
+                          onTap: () => _launch(context, 'https://www.youtube.com/@StateHouseDiasporaUnitUg'),
                         ),
                       ),
                     ],
                   ),
 
                   const SizedBox(height: 24),
+
+                  // ── Our Office ────────────────────────────────────────
                   _SectionLabel('Our Office'),
                   const SizedBox(height: 12),
 
@@ -152,10 +167,7 @@ class ContactScreen extends StatelessWidget {
                           children: [
                             Container(
                               padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: AppColors.deepRed.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
+                              decoration: BoxDecoration(color: AppColors.deepRed.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
                               child: const Icon(Icons.location_on_rounded, color: AppColors.deepRed, size: 22),
                             ),
                             const SizedBox(width: 14),
@@ -165,7 +177,7 @@ class ContactScreen extends StatelessWidget {
                                 children: [
                                   Text('Headquarters', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.primaryBlack)),
                                   SizedBox(height: 4),
-                                  Text('Ministry of Foreign Affairs\nPlot 3, Yusuf Lule Road\nKampala, Uganda', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondaryLight, height: 1.6)),
+                                  Text('State House Diaspora Unit\nKampala, Uganda', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondaryLight, height: 1.6)),
                                 ],
                               ),
                             ),
@@ -196,7 +208,14 @@ class ContactScreen extends StatelessWidget {
                   ),
 
                   const SizedBox(height: 24),
+
+                  // ── Send a Message ────────────────────────────────────
                   _SectionLabel('Send a Message'),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Your message will be recorded and our team will reply to your email.',
+                    style: TextStyle(fontSize: 12, color: AppColors.textSecondaryLight),
+                  ),
                   const SizedBox(height: 12),
                   const _ContactForm(),
 
@@ -211,14 +230,15 @@ class ContactScreen extends StatelessWidget {
   }
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
 class _SectionLabel extends StatelessWidget {
   final String text;
   const _SectionLabel(this.text);
 
   @override
-  Widget build(BuildContext context) {
-    return Text(text, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.primaryBlack, letterSpacing: 0.2));
-  }
+  Widget build(BuildContext context) => Text(text,
+    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.primaryBlack, letterSpacing: 0.2));
 }
 
 class _ContactCard extends StatelessWidget {
@@ -276,12 +296,12 @@ class _ContactCard extends StatelessWidget {
 }
 
 class _SocialCard extends StatelessWidget {
-  final IconData icon;
+  final IconData? icon;
   final Widget? customWidget;
   final Color color;
   final String label, handle;
   final VoidCallback onTap;
-  const _SocialCard({required this.icon, this.customWidget, required this.color, required this.label, required this.handle, required this.onTap});
+  const _SocialCard({this.icon, this.customWidget, required this.color, required this.label, required this.handle, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -297,11 +317,10 @@ class _SocialCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               customWidget ?? Icon(icon, color: Colors.white, size: 28),
-              if (customWidget == null) const SizedBox(height: 4),
               const SizedBox(height: 10),
               Text(label, style: const TextStyle(fontSize: 11, color: Colors.white60, fontWeight: FontWeight.w500)),
               const SizedBox(height: 2),
-              Text(handle, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white)),
+              Text(handle, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white)),
             ],
           ),
         ),
@@ -329,6 +348,8 @@ class _OfficeHoursRow extends StatelessWidget {
   }
 }
 
+// ── Contact Form ──────────────────────────────────────────────────────────────
+
 class _ContactForm extends StatefulWidget {
   const _ContactForm();
 
@@ -337,30 +358,51 @@ class _ContactForm extends StatefulWidget {
 }
 
 class _ContactFormState extends State<_ContactForm> {
-  final _nameCtrl = TextEditingController();
-  final _emailCtrl = TextEditingController();
-  final _msgCtrl = TextEditingController();
-  bool _sent = false;
+  final _nameCtrl    = TextEditingController();
+  final _emailCtrl   = TextEditingController();
+  final _subjectCtrl = TextEditingController();
+  final _msgCtrl     = TextEditingController();
+  bool _sent    = false;
   bool _sending = false;
 
   @override
   void dispose() {
     _nameCtrl.dispose();
     _emailCtrl.dispose();
+    _subjectCtrl.dispose();
     _msgCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _send() async {
-    if (_nameCtrl.text.isEmpty || _emailCtrl.text.isEmpty || _msgCtrl.text.isEmpty) {
+    final name    = _nameCtrl.text.trim();
+    final email   = _emailCtrl.text.trim();
+    final message = _msgCtrl.text.trim();
+
+    if (name.isEmpty || email.isEmpty || message.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in all fields')),
+        const SnackBar(content: Text('Please fill in name, email and message')),
       );
       return;
     }
+
     setState(() => _sending = true);
-    await Future.delayed(const Duration(milliseconds: 1200));
-    if (mounted) setState(() { _sent = true; _sending = false; });
+    try {
+      await ApiClient.instance.sendContactMessage(
+        name: name,
+        email: email,
+        subject: _subjectCtrl.text.trim().isEmpty ? null : _subjectCtrl.text.trim(),
+        message: message,
+      );
+      if (mounted) setState(() { _sent = true; _sending = false; });
+    } catch (_) {
+      if (mounted) {
+        setState(() => _sending = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not send message. Please try again.')),
+        );
+      }
+    }
   }
 
   @override
@@ -383,7 +425,7 @@ class _ContactFormState extends State<_ContactForm> {
             const SizedBox(height: 12),
             const Text('Message Sent!', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
             const SizedBox(height: 4),
-            const Text('We\'ll get back to you within 48 hours.', style: TextStyle(color: AppColors.textSecondaryLight, fontSize: 13)),
+            const Text("We'll get back to you within 48 hours.", style: TextStyle(color: AppColors.textSecondaryLight, fontSize: 13)),
           ],
         ),
       );
@@ -398,9 +440,11 @@ class _ContactFormState extends State<_ContactForm> {
       ),
       child: Column(
         children: [
-          _FormField(controller: _nameCtrl, label: 'Your Name', hint: 'e.g. John Doe', icon: Icons.person_outline_rounded),
+          _FormField(controller: _nameCtrl,    label: 'Your Name',           hint: 'e.g. John Doe',         icon: Icons.person_outline_rounded),
           const SizedBox(height: 12),
-          _FormField(controller: _emailCtrl, label: 'Email Address', hint: 'your@email.com', icon: Icons.email_outlined, keyboard: TextInputType.emailAddress),
+          _FormField(controller: _emailCtrl,   label: 'Email Address',       hint: 'your@email.com',         icon: Icons.email_outlined, keyboard: TextInputType.emailAddress),
+          const SizedBox(height: 12),
+          _FormField(controller: _subjectCtrl, label: 'Subject (optional)',   hint: 'What is this about?',   icon: Icons.subject_rounded),
           const SizedBox(height: 12),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,

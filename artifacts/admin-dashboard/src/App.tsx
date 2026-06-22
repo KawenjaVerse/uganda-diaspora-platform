@@ -18,6 +18,7 @@ import OpportunitiesPage from "@/pages/opportunities";
 import NotificationsPage from "@/pages/notifications";
 import MdasPage from "@/pages/mdas";
 import RegistrationsPage from "@/pages/registrations";
+import MessagesPage from "@/pages/messages";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -74,6 +75,7 @@ function AppRoutes() {
       <Route path="/notifications">{() => <ProtectedRoute component={NotificationsPage} />}</Route>
       <Route path="/mdas">{() => <ProtectedRoute component={MdasPage} />}</Route>
       <Route path="/registrations">{() => <ProtectedRoute component={RegistrationsPage} />}</Route>
+      <Route path="/messages">{() => <ProtectedRoute component={MessagesPage} />}</Route>
       <Route component={NotFound} />
     </Switch>
   );

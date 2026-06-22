@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, Newspaper, Users, Building2, MapPin,
   Video, CalendarDays, MessageSquare, Briefcase, Bell, Landmark, LogOut,
-  ChevronRight, ClipboardList,
+  ChevronRight, ClipboardList, Mail,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -38,6 +38,7 @@ const navGroups = [
       { href: "/registrations", label: "Registrations", icon: ClipboardList  },
       { href: "/community",     label: "Community",     icon: MessageSquare  },
       { href: "/notifications", label: "Notifications", icon: Bell           },
+      { href: "/messages",      label: "Messages",      icon: Mail            },
     ],
   },
 ];

@@ -230,4 +230,18 @@ class ApiClient {
   Future<void> deleteUser(int id) async {
     await _dio.delete('/users/$id');
   }
+
+  Future<void> sendContactMessage({
+    required String name,
+    required String email,
+    String? subject,
+    required String message,
+  }) async {
+    await _dio.post('/contact-messages', data: {
+      'name': name,
+      'email': email,
+      if (subject != null) 'subject': subject,
+      'message': message,
+    });
+  }
 }

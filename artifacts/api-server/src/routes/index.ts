@@ -13,6 +13,7 @@ import mdasRouter from "./mdas";
 import opportunitiesRouter from "./opportunities";
 import dashboardRouter from "./dashboard";
 import registrationsRouter from "./registrations";
+import contactMessagesRouter from "./contactMessages";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use(mdasRouter);
 router.use(opportunitiesRouter);
 router.use(dashboardRouter);
 router.use(registrationsRouter);
+router.use(contactMessagesRouter);
 
 export default router;
