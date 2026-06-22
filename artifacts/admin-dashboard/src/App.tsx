@@ -19,6 +19,7 @@ import NotificationsPage from "@/pages/notifications";
 import MdasPage from "@/pages/mdas";
 import RegistrationsPage from "@/pages/registrations";
 import MessagesPage from "@/pages/messages";
+import DataDeletionPage from "@/pages/data-deletion";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -63,6 +64,7 @@ function AppRoutes() {
   return (
     <Switch>
       <Route path="/login" component={Login} />
+      <Route path="/data-deletion" component={DataDeletionPage} />
       <Route path="/">{() => <ProtectedRoute component={Dashboard} />}</Route>
       <Route path="/news">{() => <ProtectedRoute component={NewsPage} />}</Route>
       <Route path="/users">{() => <ProtectedRoute component={UsersPage} />}</Route>
