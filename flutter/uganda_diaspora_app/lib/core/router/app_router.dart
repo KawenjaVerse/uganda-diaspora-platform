@@ -21,6 +21,7 @@ import '../../features/profile/screens/profile_screen.dart';
 import '../../features/notifications/screens/notifications_screen.dart';
 import '../../features/services/screens/services_screen.dart';
 import '../../features/contact/screens/contact_screen.dart';
+import '../../features/profile/screens/privacy_policy_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
@@ -77,6 +78,11 @@ GoRouter createRouter() {
         path: '/contact',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const ContactScreen(),
+      ),
+      GoRoute(
+        path: '/privacy-policy',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (_, __) => const PrivacyPolicyScreen(),
       ),
       ShellRoute(
         navigatorKey: _shellNavigatorKey,

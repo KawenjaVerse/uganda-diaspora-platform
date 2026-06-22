@@ -226,4 +226,8 @@ class ApiClient {
     final response = await _dio.patch('/users/$id', data: data);
     return response.data;
   }
+
+  Future<void> deleteUser(int id) async {
+    await _dio.delete('/users/$id');
+  }
 }

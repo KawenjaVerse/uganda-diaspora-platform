@@ -17,6 +17,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   Map<String, dynamic>? _user;
   bool _loading = true;
+  bool _deleting = false;
 
   @override
   void initState() {
@@ -55,10 +56,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final bytes = await picked.readAsBytes();
       final base64Str = 'data:image/jpeg;base64,${base64Encode(bytes)}';
 
-      // Update local state immediately
       setState(() { _user = Map<String, dynamic>.from(_user ?? {})..['avatarUrl'] = base64Str; });
 
-      // Persist to SharedPreferences
       final prefs = await SharedPreferences.getInstance();
       final userJson = prefs.getString('auth_user');
       if (userJson != null) {
@@ -69,29 +68,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
         } catch (_) {}
       }
 
-      // Sync to API if we have a user ID
       final userId = _user?['id'];
       if (userId != null) {
         try { await ApiClient.instance.updateUser(userId as int, {'avatarUrl': base64Str}); } catch (_) {}
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Row(children: [Icon(Icons.check_circle_rounded, color: Colors.white, size: 16), SizedBox(width: 8), Text('Profile photo updated')]),
-            backgroundColor: AppColors.primaryBlack,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            margin: const EdgeInsets.all(16),
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Row(children: [Icon(Icons.check_circle_rounded, color: Colors.white, size: 16), SizedBox(width: 8), Text('Profile photo updated')]),
+          backgroundColor: AppColors.primaryBlack,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          margin: const EdgeInsets.all(16),
+        ));
       }
     } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not update photo')),
-        );
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not update photo')));
     }
   }
 
@@ -103,17 +95,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
           final idx = avatarUrl.indexOf(',');
           if (idx != -1) {
             final bytes = base64Decode(avatarUrl.substring(idx + 1));
-            return ClipOval(child: Image.memory(bytes, width: 84, height: 84, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _buildInitialsAvatar()));
+            return ClipOval(child: Image.memory(bytes, width: 96, height: 96, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _buildInitialsAvatar()));
           }
         } catch (_) {}
       } else {
-        return ClipOval(child: Image.network(avatarUrl, width: 84, height: 84, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _buildInitialsAvatar()));
+        return ClipOval(child: Image.network(avatarUrl, width: 96, height: 96, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _buildInitialsAvatar()));
       }
     }
     return _buildInitialsAvatar();
   }
 
-  Widget _buildInitialsAvatar() => Center(child: Text(_initials, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: Colors.white)));
+  Widget _buildInitialsAvatar() => Center(
+    child: Text(_initials, style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w900, color: Colors.white)),
+  );
 
   String _memberSince() {
     final created = _user?['createdAt'];
@@ -125,12 +119,80 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (_) { return 'Member'; }
   }
 
+  Future<void> _confirmDeleteAccount() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 22),
+            SizedBox(width: 8),
+            Text('Delete Account', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+          ],
+        ),
+        content: const Text(
+          'This will permanently delete your account and all your data. This action cannot be undone.\n\nAre you absolutely sure?',
+          style: TextStyle(fontSize: 14, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w600)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Delete My Account', style: TextStyle(fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await _deleteAccount();
+  }
+
+  Future<void> _deleteAccount() async {
+    final userId = _user?['id'];
+    if (userId == null) return;
+
+    setState(() => _deleting = true);
+    try {
+      await ApiClient.instance.deleteUser(userId as int);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('auth_token');
+      await prefs.remove('auth_user');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Account deleted successfully'),
+          backgroundColor: Color(0xFFDC2626),
+        ));
+        context.go('/login');
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _deleting = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text('Could not delete account. Please try again.'),
+          backgroundColor: AppColors.primaryBlack,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          margin: const EdgeInsets.all(16),
+        ));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return Scaffold(
@@ -139,7 +201,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         slivers: [
           // ── Hero Header ──────────────────────────────────────────────
           SliverAppBar(
-            expandedHeight: 240,
+            expandedHeight: 260,
             pinned: true,
             backgroundColor: AppColors.primaryBlack,
             actions: [
@@ -161,52 +223,73 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 child: Stack(
                   children: [
+                    // Background accent circle
                     Positioned(
-                      right: -60, top: -60,
+                      right: -50, top: -50,
                       child: Container(
-                        width: 220, height: 220,
+                        width: 200, height: 200,
                         decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.darkOrange.withOpacity(0.07)),
                       ),
                     ),
-                    SafeArea(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 50, 20, 16),
+                    Positioned(
+                      left: -40, bottom: -40,
+                      child: Container(
+                        width: 160, height: 160,
+                        decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.darkOrange.withOpacity(0.04)),
+                      ),
+                    ),
+                    // Content — fully centered
+                    Center(
+                      child: SafeArea(
                         child: Column(
-                          mainAxisAlignment: MainAxisAlignment.end,
+                          mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            // Avatar
+                            const SizedBox(height: 16),
+                            // Avatar — tappable
                             GestureDetector(
                               onTap: _pickAvatar,
                               child: Stack(
                                 alignment: Alignment.bottomRight,
                                 children: [
                                   Container(
-                                    width: 84, height: 84,
+                                    width: 96, height: 96,
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
                                       gradient: const LinearGradient(
                                         colors: [AppColors.darkOrange, Color(0xFFB45309)],
                                       ),
+                                      boxShadow: [BoxShadow(color: AppColors.darkOrange.withOpacity(0.35), blurRadius: 16, offset: const Offset(0, 6))],
                                     ),
                                     child: _buildAvatarContent(),
                                   ),
                                   Container(
-                                    padding: const EdgeInsets.all(6),
-                                    decoration: const BoxDecoration(color: AppColors.primaryBlack, shape: BoxShape.circle),
-                                    child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 12),
+                                    padding: const EdgeInsets.all(7),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primaryBlack,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: Colors.white12, width: 1),
+                                    ),
+                                    child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 13),
                                   ),
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 12),
-                            Text(_user?['fullName'] ?? 'User', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -0.3)),
+                            const SizedBox(height: 14),
+                            Text(
+                              _user?['fullName'] ?? 'User',
+                              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -0.3),
+                              textAlign: TextAlign.center,
+                            ),
                             const SizedBox(height: 4),
-                            Text(_user?['email'] ?? '', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                            Text(
+                              _user?['email'] ?? '',
+                              style: const TextStyle(color: Colors.white54, fontSize: 12),
+                              textAlign: TextAlign.center,
+                            ),
                             const SizedBox(height: 10),
-                            // Role badge
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
                               decoration: BoxDecoration(
                                 color: AppColors.darkOrange.withOpacity(0.2),
                                 borderRadius: BorderRadius.circular(20),
@@ -259,51 +342,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      Expanded(
-                        child: _QuickTile(
-                          icon: Icons.miscellaneous_services_rounded,
-                          label: 'Our Services',
-                          color: AppColors.darkOrange,
-                          onTap: () => context.push('/services'),
-                        ),
-                      ),
+                      Expanded(child: _QuickTile(
+                        icon: Icons.miscellaneous_services_rounded,
+                        label: 'Our Services',
+                        color: AppColors.darkOrange,
+                        onTap: () => context.push('/services'),
+                      )),
                       const SizedBox(width: 12),
-                      Expanded(
-                        child: _QuickTile(
-                          icon: Icons.contact_support_rounded,
-                          label: 'Contact Us',
-                          color: AppColors.deepRed,
-                          onTap: () => context.push('/contact'),
-                        ),
-                      ),
+                      Expanded(child: _QuickTile(
+                        icon: Icons.contact_support_rounded,
+                        label: 'Contact Us',
+                        color: AppColors.deepRed,
+                        onTap: () => context.push('/contact'),
+                      )),
                       const SizedBox(width: 12),
-                      Expanded(
-                        child: _QuickTile(
-                          icon: Icons.how_to_reg_rounded,
-                          label: 'Register',
-                          color: const Color(0xFF2563EB),
-                          onTap: () {
-                            // Open diaspora registration sheet
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Use the Register button on the Home screen')),
-                            );
-                          },
+                      Expanded(child: _QuickTile(
+                        icon: Icons.how_to_reg_rounded,
+                        label: 'Register',
+                        color: const Color(0xFF2563EB),
+                        onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Use the Register button on the Home screen')),
                         ),
-                      ),
+                      )),
                     ],
                   ),
 
                   const SizedBox(height: 16),
 
-                  // ── Navigation ────────────────────────────────────────
+                  // ── Explore ───────────────────────────────────────────
                   _SectionHeader('Explore'),
                   const SizedBox(height: 8),
                   _MenuSection([
                     _MenuItem(Icons.notifications_outlined, 'Notifications', () => context.go('/notifications')),
-                    _MenuItem(Icons.work_outline_rounded, 'Opportunities', () => context.go('/opportunities')),
                     _MenuItem(Icons.event_outlined, 'Events', () => context.go('/events')),
                     _MenuItem(Icons.ondemand_video_rounded, 'Webinars', () => context.go('/webinars')),
-                    _MenuItem(Icons.travel_explore_rounded, 'Tourism', () => context.go('/tourism')),
                   ]),
 
                   const SizedBox(height: 16),
@@ -313,8 +385,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 8),
                   _MenuSection([
                     _MenuItem(Icons.help_outline_rounded, 'Help & Support', () => context.push('/contact')),
-                    _MenuItem(Icons.info_outline_rounded, 'About Uganda Diaspora', () {}),
-                    _MenuItem(Icons.privacy_tip_outlined, 'Privacy Policy', () {}),
+                    _MenuItem(Icons.privacy_tip_outlined, 'Privacy Policy', () => context.push('/privacy-policy')),
                   ]),
 
                   const SizedBox(height: 20),
@@ -328,6 +399,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       label: const Text('Sign Out', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w600)),
                       style: OutlinedButton.styleFrom(
                         side: BorderSide(color: AppColors.error.withOpacity(0.4)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  // ── Delete Account ────────────────────────────────────
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _deleting ? null : _confirmDeleteAccount,
+                      icon: _deleting
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFDC2626)))
+                          : const Icon(Icons.delete_forever_rounded, color: Color(0xFFDC2626), size: 18),
+                      label: Text(
+                        _deleting ? 'Deleting…' : 'Delete Account',
+                        style: const TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.w600),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0x44DC2626)),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
@@ -416,7 +509,8 @@ class _SectionHeader extends StatelessWidget {
   final String text;
   const _SectionHeader(this.text);
   @override
-  Widget build(BuildContext context) => Text(text, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.textSecondaryLight, letterSpacing: 0.5));
+  Widget build(BuildContext context) => Text(text,
+    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.textSecondaryLight, letterSpacing: 0.5));
 }
 
 class _StatItem extends StatelessWidget {
@@ -427,9 +521,13 @@ class _StatItem extends StatelessWidget {
   Widget build(BuildContext context) => Expanded(
     child: Column(
       children: [
-        Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.primaryBlack), textAlign: TextAlign.center, overflow: TextOverflow.ellipsis),
+        Text(value,
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.primaryBlack),
+          textAlign: TextAlign.center, overflow: TextOverflow.ellipsis),
         const SizedBox(height: 3),
-        Text(label, style: const TextStyle(fontSize: 10, color: AppColors.textSecondaryLight, fontWeight: FontWeight.w500), textAlign: TextAlign.center),
+        Text(label,
+          style: const TextStyle(fontSize: 10, color: AppColors.textSecondaryLight, fontWeight: FontWeight.w500),
+          textAlign: TextAlign.center),
       ],
     ),
   );
@@ -466,7 +564,9 @@ class _QuickTile extends StatelessWidget {
               child: Icon(icon, color: color, size: 20),
             ),
             const SizedBox(height: 8),
-            Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primaryBlack), textAlign: TextAlign.center, maxLines: 2),
+            Text(label,
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primaryBlack),
+              textAlign: TextAlign.center, maxLines: 2),
           ],
         ),
       ),
@@ -538,11 +638,14 @@ class _EditField extends StatelessWidget {
         TextField(
           controller: ctrl,
           maxLines: maxLines,
+          style: const TextStyle(fontSize: 14),
           decoration: InputDecoration(
             prefixIcon: Icon(icon, size: 18, color: AppColors.textSecondaryLight),
             filled: true,
-            fillColor: AppColors.inputBackgroundLight,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+            fillColor: const Color(0xFFF9FAFB),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.primaryBlack, width: 1.5)),
             contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           ),
         ),
@@ -551,6 +654,6 @@ class _EditField extends StatelessWidget {
   }
 }
 
-extension StringExt on String {
+extension _StringExt on String {
   String capitalize() => isEmpty ? this : '${this[0].toUpperCase()}${substring(1)}';
 }
