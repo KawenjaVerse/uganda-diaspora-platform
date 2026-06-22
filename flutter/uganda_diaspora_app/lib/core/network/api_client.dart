@@ -221,4 +221,9 @@ class ApiClient {
     });
     return response.data;
   }
+
+  Future<Map<String, dynamic>> updateUser(int id, Map<String, dynamic> data) async {
+    final response = await _dio.patch('/users/$id', data: data);
+    return response.data;
+  }
 }

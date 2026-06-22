@@ -1,5 +1,8 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/api_client.dart';
@@ -43,6 +46,74 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (parts.length >= 2) return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
     return parts[0].isNotEmpty ? parts[0][0].toUpperCase() : 'U';
   }
+
+  Future<void> _pickAvatar() async {
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80, maxWidth: 400, maxHeight: 400);
+      if (picked == null || !mounted) return;
+      final bytes = await picked.readAsBytes();
+      final base64Str = 'data:image/jpeg;base64,${base64Encode(bytes)}';
+
+      // Update local state immediately
+      setState(() { _user = Map<String, dynamic>.from(_user ?? {})..['avatarUrl'] = base64Str; });
+
+      // Persist to SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      final userJson = prefs.getString('auth_user');
+      if (userJson != null) {
+        try {
+          final userMap = Map<String, dynamic>.from(jsonDecode(userJson));
+          userMap['avatarUrl'] = base64Str;
+          await prefs.setString('auth_user', jsonEncode(userMap));
+        } catch (_) {}
+      }
+
+      // Sync to API if we have a user ID
+      final userId = _user?['id'];
+      if (userId != null) {
+        try { await ApiClient.instance.updateUser(userId as int, {'avatarUrl': base64Str}); } catch (_) {}
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(children: [Icon(Icons.check_circle_rounded, color: Colors.white, size: 16), SizedBox(width: 8), Text('Profile photo updated')]),
+            backgroundColor: AppColors.primaryBlack,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            margin: const EdgeInsets.all(16),
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not update photo')),
+        );
+      }
+    }
+  }
+
+  Widget _buildAvatarContent() {
+    final avatarUrl = _user?['avatarUrl'] as String?;
+    if (avatarUrl != null && avatarUrl.isNotEmpty) {
+      if (avatarUrl.startsWith('data:')) {
+        try {
+          final idx = avatarUrl.indexOf(',');
+          if (idx != -1) {
+            final bytes = base64Decode(avatarUrl.substring(idx + 1));
+            return ClipOval(child: Image.memory(bytes, width: 84, height: 84, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _buildInitialsAvatar()));
+          }
+        } catch (_) {}
+      } else {
+        return ClipOval(child: Image.network(avatarUrl, width: 84, height: 84, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _buildInitialsAvatar()));
+      }
+    }
+    return _buildInitialsAvatar();
+  }
+
+  Widget _buildInitialsAvatar() => Center(child: Text(_initials, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: Colors.white)));
 
   String _memberSince() {
     final created = _user?['createdAt'];
@@ -105,27 +176,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             // Avatar
-                            Stack(
-                              alignment: Alignment.bottomRight,
-                              children: [
-                                Container(
-                                  width: 84, height: 84,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    gradient: const LinearGradient(
-                                      colors: [AppColors.darkOrange, Color(0xFFB45309)],
+                            GestureDetector(
+                              onTap: _pickAvatar,
+                              child: Stack(
+                                alignment: Alignment.bottomRight,
+                                children: [
+                                  Container(
+                                    width: 84, height: 84,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      gradient: const LinearGradient(
+                                        colors: [AppColors.darkOrange, Color(0xFFB45309)],
+                                      ),
                                     ),
+                                    child: _buildAvatarContent(),
                                   ),
-                                  child: _user?['avatarUrl'] != null
-                                      ? ClipOval(child: Image.network(_user!['avatarUrl'], fit: BoxFit.cover))
-                                      : Center(child: Text(_initials, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: Colors.white))),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: const BoxDecoration(color: AppColors.primaryBlack, shape: BoxShape.circle),
-                                  child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 12),
-                                ),
-                              ],
+                                  Container(
+                                    padding: const EdgeInsets.all(6),
+                                    decoration: const BoxDecoration(color: AppColors.primaryBlack, shape: BoxShape.circle),
+                                    child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 12),
+                                  ),
+                                ],
+                              ),
                             ),
                             const SizedBox(height: 12),
                             Text(_user?['fullName'] ?? 'User', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -0.3)),

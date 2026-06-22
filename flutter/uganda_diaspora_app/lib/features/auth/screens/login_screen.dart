@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -52,7 +53,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       );
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('auth_token', response['token']);
-      await prefs.setString('auth_user', response['user'].toString());
+      await prefs.setString('auth_user', jsonEncode(response['user']));
       if (mounted) context.go('/');
     } catch (_) {
       if (mounted) {

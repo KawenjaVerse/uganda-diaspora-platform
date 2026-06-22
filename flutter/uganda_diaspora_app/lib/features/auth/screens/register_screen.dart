@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -70,6 +71,9 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
       );
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('auth_token', response['token']);
+      if (response['user'] != null) {
+        await prefs.setString('auth_user', jsonEncode(response['user']));
+      }
       if (mounted) context.go('/');
     } catch (_) {
       if (mounted) {
