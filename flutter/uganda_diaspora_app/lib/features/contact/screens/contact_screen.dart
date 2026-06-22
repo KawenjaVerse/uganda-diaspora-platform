@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/api_client.dart';
@@ -33,7 +34,7 @@ class ContactScreen extends StatelessWidget {
                 decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), shape: BoxShape.circle),
                 child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
               ),
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => context.canPop() ? context.pop() : context.go('/profile'),
             ),
             flexibleSpace: FlexibleSpaceBar(
               titlePadding: const EdgeInsets.only(left: 20, bottom: 18, right: 20),
