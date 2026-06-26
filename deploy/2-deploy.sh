@@ -15,8 +15,7 @@ echo "==> Cloning / updating repository..."
 if [ -d "$APP_DIR/.git" ]; then
   cd "$APP_DIR" && git pull
 else
-  # Replace the URL below with your actual git repo URL
-  git clone https://github.com/YOUR_USER/YOUR_REPO.git "$APP_DIR"
+  git clone https://github.com/KawenjaVerse/uganda-diaspora-platform.git "$APP_DIR"
   cd "$APP_DIR"
 fi
 
