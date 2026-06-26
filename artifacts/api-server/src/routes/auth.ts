@@ -78,6 +78,30 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   res.status(201).json({ token, user: GetMeResponse.parse(user) });
 });
 
+router.post("/auth/reset-password", async (req, res): Promise<void> => {
+  const { email, newPassword } = req.body ?? {};
+  if (!email || typeof email !== "string") {
+    res.status(400).json({ error: "Email is required" });
+    return;
+  }
+  if (!newPassword || typeof newPassword !== "string" || newPassword.length < 6) {
+    res.status(400).json({ error: "New password must be at least 6 characters" });
+    return;
+  }
+
+  const [user] = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.email, email.trim().toLowerCase()));
+  if (!user) {
+    res.status(404).json({ error: "No account found with that email address" });
+    return;
+  }
+
+  await db.update(usersTable)
+    .set({ passwordHash: hashPassword(newPassword) })
+    .where(eq(usersTable.id, user.id));
+
+  res.json({ message: "Password updated successfully" });
+});
+
 router.get("/auth/me", async (req, res): Promise<void> => {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith("Bearer ")) {

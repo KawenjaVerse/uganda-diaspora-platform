@@ -242,7 +242,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                   Align(
                                     alignment: Alignment.centerRight,
                                     child: TextButton(
-                                      onPressed: () {},
+                                      onPressed: () => context.push('/forgot-password'),
                                       style: TextButton.styleFrom(
                                         foregroundColor: AppColors.ugandaYellow,
                                         padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),

@@ -62,6 +62,18 @@ class ApiClient {
     return response.data;
   }
 
+  Future<void> resetPassword({required String email, required String newPassword}) async {
+    try {
+      await _dio.post('/auth/reset-password', data: {
+        'email': email,
+        'newPassword': newPassword,
+      });
+    } on DioException catch (e) {
+      final msg = e.response?.data?['error'] ?? 'Failed to reset password';
+      throw Exception(msg);
+    }
+  }
+
   // News
   Future<Map<String, dynamic>> getNews({int page = 1, int limit = 20, String? category, bool? featured}) async {
     final response = await _dio.get('/news', queryParameters: {

@@ -22,6 +22,7 @@ import '../../features/notifications/screens/notifications_screen.dart';
 import '../../features/services/screens/services_screen.dart';
 import '../../features/contact/screens/contact_screen.dart';
 import '../../features/profile/screens/privacy_policy_screen.dart';
+import '../../features/auth/screens/forgot_password_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
@@ -62,6 +63,10 @@ GoRouter createRouter() {
       GoRoute(
         path: '/register',
         builder: (context, state) => const RegisterScreen(),
+      ),
+      GoRoute(
+        path: '/forgot-password',
+        builder: (context, state) => const ForgotPasswordScreen(),
       ),
       GoRoute(
         path: '/statehouse',
