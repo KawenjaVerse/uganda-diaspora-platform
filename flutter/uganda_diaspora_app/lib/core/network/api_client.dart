@@ -69,7 +69,13 @@ class ApiClient {
         'newPassword': newPassword,
       });
     } on DioException catch (e) {
-      final msg = e.response?.data?['error'] ?? 'Failed to reset password';
+      String msg = 'Failed to reset password';
+      final data = e.response?.data;
+      if (data is Map) {
+        msg = data['error']?.toString() ?? msg;
+      } else if (data is String && data.isNotEmpty) {
+        msg = data;
+      }
       throw Exception(msg);
     }
   }
